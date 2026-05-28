@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>胡哥说餐饮 - 草稿生成后台</title>
+  <style>
+    body { margin: 0; font-family: "Microsoft YaHei", Arial, sans-serif; background: #f6f3ee; color: #20252d; }
+    header { padding: 24px 32px; background: #20252d; color: #fff; }
+    main { max-width: 1180px; margin: 0 auto; padding: 28px; }
+    .toolbar { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; margin-bottom: 24px; }
+    label { display: grid; gap: 6px; font-size: 14px; color: #555; }
+    input { height: 38px; padding: 0 10px; border: 1px solid #d8d1c5; border-radius: 6px; background: #fff; }
+    button, .button { height: 40px; padding: 0 16px; border: 0; border-radius: 6px; background: #b42318; color: #fff; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+    button.secondary, .button.secondary { background: #20252d; }
+    .notice { padding: 12px 14px; background: #fff7ed; border-left: 4px solid #c78b2f; margin-bottom: 18px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .card { background: #fff; border: 1px solid #e4ded4; border-radius: 8px; padding: 16px; }
+    .title { font-size: 17px; font-weight: 800; line-height: 1.5; margin-bottom: 8px; }
+    .meta { color: #666; font-size: 13px; line-height: 1.7; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+    .chip { background: #f1eee8; color: #4a4137; padding: 3px 8px; border-radius: 999px; font-size: 12px; }
+    .actions { display: flex; gap: 8px; margin-top: 14px; }
+    .uploaded { color: #16794c; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>胡哥说餐饮 草稿生成后台</h1>
+  </header>
+  <main>
+    {% if not has_wechat %}
+      <div class="notice">公众号 AppID/AppSecret 未配置。可以生成预览，但不能上传公众号草稿箱。</div>
+    {% endif %}
+
+    <form class="toolbar" method="post" action="{{ url_for('generate_batch') }}">
+      <label>起始日期
+        <input type="date" name="start_date" value="{{ today }}">
+      </label>
+      <label>生成篇数
+        <input type="number" name="count" min="1" max="10" value="{{ batch_size }}">
+      </label>
+      <button type="submit">生成10篇预览</button>
+    </form>
+
+    {% if items %}
+      <form method="post" action="{{ url_for('upload_batch') }}">
+        {% for item in items %}
+          <input type="hidden" name="dates" value="{{ item.publish_date }}">
+        {% endfor %}
+        <button class="secondary" type="submit">上传本批次到公众号草稿箱</button>
+      </form>
+    {% endif %}
+
+    <section class="grid" style="margin-top:18px;">
+      {% for item in items %}
+        <article class="card">
+          <div class="title">{{ item.title }}</div>
+          <div class="meta">{{ item.publish_date }} · {{ item.topic_name }}</div>
+          <div class="chips">
+            {% for keyword in item.keywords[:5] %}
+              <span class="chip">{{ keyword }}</span>
+            {% endfor %}
+          </div>
+          {% if item.draft_media_id %}
+            <div class="uploaded">已上传：{{ item.draft_media_id }}</div>
+          {% else %}
+            <div class="meta">未上传公众号草稿箱</div>
+          {% endif %}
+          <div class="actions">
+            <a class="button secondary" href="{{ url_for('preview', publish_date=item.publish_date) }}">预览</a>
+            <form method="post" action="{{ url_for('upload_one', publish_date=item.publish_date) }}">
+              <button type="submit">上传</button>
+            </form>
+          </div>
+        </article>
+      {% else %}
+        <div class="notice">还没有预览稿。点击上方按钮生成 10 篇。</div>
+      {% endfor %}
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,26 @@
+<section style="font-size:16px;line-height:1.85;color:#2f343b;margin:0 auto;max-width:677px;">
+  <p style="margin:0 0 18px;">{{ article.intro }}</p>
+
+  {% if inline_image_url %}
+  <p style="margin:20px 0;text-align:center;">
+    <img src="{{ inline_image_url }}" alt="今日金句" style="max-width:100%;height:auto;" />
+  </p>
+  {% endif %}
+
+  {% for advice in article.advices %}
+  <section style="margin:22px 0;padding:18px 18px 16px;border-left:5px solid #b42318;background:#fff7ed;">
+    <p style="margin:0 0 8px;color:#b42318;font-size:18px;font-weight:700;">
+      {{ "%02d"|format(advice.index) }} {{ advice.title }}
+    </p>
+    <p style="margin:0;color:#374151;">{{ advice.body }}</p>
+  </section>
+  {% endfor %}
+
+  <section style="margin:28px 0 8px;padding:18px;background:#1f2933;color:#fff;">
+    <p style="margin:0;">{{ article.conclusion }}</p>
+  </section>
+
+  <p style="margin:18px 0 0;color:#6b7280;font-size:14px;">
+    栏目：{{ brand_name }} · {{ article.publish_date.strftime("%Y-%m-%d") }}
+  </p>
+</section>

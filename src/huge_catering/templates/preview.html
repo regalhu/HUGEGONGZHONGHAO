@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ metadata.title }}</title>
+  <style>
+    body { margin: 0; font-family: "Microsoft YaHei", Arial, sans-serif; background: #f6f3ee; color: #20252d; }
+    main { max-width: 960px; margin: 0 auto; padding: 28px; }
+    a, button { border-radius: 6px; }
+    .button, button { display: inline-flex; align-items: center; height: 40px; padding: 0 16px; background: #b42318; color: #fff; border: 0; text-decoration: none; font-weight: 700; cursor: pointer; }
+    .secondary { background: #20252d; }
+    .panel { background: #fff; border: 1px solid #e4ded4; border-radius: 8px; padding: 18px; margin: 16px 0; }
+    img { max-width: 100%; height: auto; border-radius: 6px; border: 1px solid #e4ded4; }
+    iframe { width: 100%; height: 760px; border: 1px solid #e4ded4; background: #fff; border-radius: 8px; }
+    .meta { color: #666; line-height: 1.8; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <a class="button secondary" href="{{ url_for('index') }}">返回列表</a>
+    <h1>{{ metadata.title }}</h1>
+    <div class="meta">
+      日期：{{ metadata.publish_date }}<br>
+      关键词：{{ metadata.trend_keywords | join("、") }}<br>
+      草稿：{{ metadata.draft_media_id or "未上传" }}
+    </div>
+    <div class="actions">
+      <form method="post" action="{{ url_for('upload_one', publish_date=publish_date) }}">
+        <button type="submit">上传到公众号草稿箱</button>
+      </form>
+    </div>
+    <section class="panel">
+      <h2>封面图</h2>
+      <img src="{{ url_for('outputs', filename=publish_date ~ '/cover.jpg') }}" alt="封面图">
+    </section>
+    <section class="panel">
+      <h2>正文漫画图</h2>
+      <img src="{{ url_for('outputs', filename=publish_date ~ '/inline-card.jpg') }}" alt="正文漫画图">
+    </section>
+    <section class="panel">
+      <h2>正文排版</h2>
+      <iframe src="{{ url_for('outputs', filename=publish_date ~ '/article.html') }}"></iframe>
+    </section>
+  </main>
+</body>
+</html>
