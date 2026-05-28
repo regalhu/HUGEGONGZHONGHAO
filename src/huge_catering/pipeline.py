@@ -37,6 +37,11 @@ def build_daily_article(
     tool_settings = load_tool_settings(tool_settings_path(settings.output_dir))
     history_file = history_path(settings.output_dir)
     history = read_history(history_file)
+    issue_number = issue_number_for_date(
+        history,
+        publish_date,
+        start_issue_number=settings.start_issue_number,
+    )
     if settings.enable_trend_content:
         try:
             topic = topic_from_trends(
@@ -44,6 +49,7 @@ def build_daily_article(
                 title_style=tool_settings.title_style,
                 article_angle=tool_settings.article_angle,
                 keyword_override=tool_settings.keyword_list or None,
+                title_variant=issue_number,
             )
         except Exception:
             raw_topics = ensure_fresh_topic_batch(
@@ -67,11 +73,6 @@ def build_daily_article(
             history=history,
             seed=seed,
         )
-    issue_number = issue_number_for_date(
-        history,
-        publish_date,
-        start_issue_number=settings.start_issue_number,
-    )
     article = generate_article(
         brand_name=settings.brand_name,
         author_name=settings.author_name,
