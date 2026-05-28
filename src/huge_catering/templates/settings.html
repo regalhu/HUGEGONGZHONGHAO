@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>生成设置 - 胡哥说餐饮</title>
+  <style>
+    body { margin: 0; font-family: "Microsoft YaHei", Arial, sans-serif; background: #f6f3ee; color: #20252d; }
+    header { padding: 22px 32px; background: #20252d; color: #fff; }
+    header a { color: #fff; text-decoration: none; font-weight: 700; margin-right: 18px; }
+    main { max-width: 1040px; margin: 0 auto; padding: 28px; }
+    h1 { margin: 0 0 8px; }
+    h2 { margin-top: 0; font-size: 20px; }
+    .panel { background: #fff; border: 1px solid #e4ded4; border-radius: 8px; padding: 20px; margin-bottom: 18px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    label { display: grid; gap: 7px; color: #555; font-size: 14px; }
+    input, select, textarea { width: 100%; box-sizing: border-box; border: 1px solid #d8d1c5; border-radius: 6px; background: #fff; color: #20252d; font: inherit; }
+    input, select { height: 40px; padding: 0 10px; }
+    textarea { min-height: 96px; padding: 10px; resize: vertical; line-height: 1.6; }
+    button, .button { height: 42px; padding: 0 18px; border: 0; border-radius: 6px; background: #b42318; color: #fff; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+    .secondary { background: #20252d; }
+    .notice { padding: 12px 14px; background: #fff7ed; border-left: 4px solid #c78b2f; margin-bottom: 18px; }
+    .hint { color: #666; font-size: 13px; line-height: 1.7; margin: 8px 0 0; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } main { padding: 18px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="{{ url_for('index') }}">草稿列表</a>
+    <a href="{{ url_for('settings_page') }}">生成设置</a>
+    <h1>生成设置</h1>
+  </header>
+  <main>
+    {% if saved %}
+      <div class="notice">设置已保存。下一次生成预览或上传草稿时会自动使用。</div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('save_settings') }}">
+      <section class="panel">
+        <h2>文章设定</h2>
+        <div class="grid">
+          <label>标题风格
+            <select name="title_style">
+              <option value="hot_warning" {% if settings.title_style == "hot_warning" %}selected{% endif %}>热点提醒型</option>
+              <option value="ten_lessons" {% if settings.title_style == "ten_lessons" %}selected{% endif %}>10句劝型</option>
+              <option value="data_signal" {% if settings.title_style == "data_signal" %}selected{% endif %}>经营信号型</option>
+              <option value="question_hook" {% if settings.title_style == "question_hook" %}selected{% endif %}>问题钩子型</option>
+            </select>
+          </label>
+          <label>关键词覆盖
+            <input name="keyword_override" value="{{ settings.keyword_override }}" placeholder="例如：外卖,复购,食品安全">
+          </label>
+        </div>
+        <label style="margin-top:16px;">文章生成机制/角度
+          <textarea name="article_angle">{{ settings.article_angle }}</textarea>
+        </label>
+        <p class="hint">留空关键词时，系统会继续抓取昨天 Bing 新闻热点和抖音热点，再总结餐饮关键词。</p>
+      </section>
+
+      <section class="panel">
+        <h2>配图设定</h2>
+        <div class="grid">
+          <label>图片生成方式
+            <select name="image_provider">
+              <option value="local" {% if settings.image_provider == "local" %}selected{% endif %}>本地漫画图</option>
+              <option value="openai" {% if settings.image_provider == "openai" %}selected{% endif %}>OpenAI 图片生成</option>
+            </select>
+          </label>
+          <label>OpenAI API Key
+            <input type="password" name="openai_api_key" value="{{ settings.openai_api_key }}" autocomplete="off" placeholder="sk-...">
+          </label>
+          <label>图片模型
+            <input name="openai_image_model" value="{{ settings.openai_image_model }}">
+          </label>
+          <label>图片尺寸
+            <select name="openai_image_size">
+              <option value="1024x1024" {% if settings.openai_image_size == "1024x1024" %}selected{% endif %}>1024x1024</option>
+              <option value="1024x1536" {% if settings.openai_image_size == "1024x1536" %}selected{% endif %}>1024x1536</option>
+              <option value="1536x1024" {% if settings.openai_image_size == "1536x1024" %}selected{% endif %}>1536x1024</option>
+            </select>
+          </label>
+          <label>图片质量
+            <select name="openai_image_quality">
+              <option value="low" {% if settings.openai_image_quality == "low" %}selected{% endif %}>low</option>
+              <option value="medium" {% if settings.openai_image_quality == "medium" %}selected{% endif %}>medium</option>
+              <option value="high" {% if settings.openai_image_quality == "high" %}selected{% endif %}>high</option>
+            </select>
+          </label>
+        </div>
+        <label style="margin-top:16px;">胡哥形象
+          <textarea name="huge_profile_prompt">{{ settings.huge_profile_prompt }}</textarea>
+        </label>
+        <label style="margin-top:16px;">图片风格
+          <textarea name="image_style_prompt">{{ settings.image_style_prompt }}</textarea>
+        </label>
+        <p class="hint">这里使用 OpenAI API Key，不会上传到 GitHub。若 OpenAI 图片生成失败，系统会自动回退到本地漫画图。</p>
+      </section>
+
+      <div class="actions">
+        <button type="submit">保存设置</button>
+        <a class="button secondary" href="{{ url_for('index') }}">返回草稿列表</a>
+      </div>
+    </form>
+  </main>
+</body>
+</html>

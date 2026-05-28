@@ -132,17 +132,25 @@ def generate_article(
     )
 
 
-def topic_from_trends(snapshot: TrendSnapshot) -> Topic:
-    keywords = snapshot.keywords or ["餐饮经营"]
+def topic_from_trends(
+    snapshot: TrendSnapshot,
+    *,
+    title_style: str = "hot_warning",
+    article_angle: str = "",
+    keyword_override: list[str] | None = None,
+) -> Topic:
+    keywords = keyword_override or snapshot.keywords or ["餐饮经营"]
     primary = keywords[0]
     secondary = keywords[1] if len(keywords) > 1 else "复购"
-    title = title_base_from_trends(snapshot)
+    title = _title_from_style(primary, title_style, snapshot)
     digest = f"胡哥根据昨天餐饮热点关键词{primary}、{secondary}，拆成今天老板能用的10句经营提醒。"
+    angle_sentence = f"这篇重点按「{article_angle}」来拆。" if article_angle else ""
     intro = (
         f"老板，昨天餐饮相关内容里，{primary}这个词出现得很扎眼。"
-        f"热点不是拿来凑热闹的，是拿来反推门店经营的。今天这10句，咱们就从{primary}说到{secondary}，看看哪些动作今天就能改。"
+        f"热点不是拿来凑热闹的，是拿来反推门店经营的。{angle_sentence}"
+        f"今天这10句，咱们就从{primary}说到{secondary}，看看哪些动作今天就能改。"
     )
-    advices = _trend_advices(primary=primary, secondary=secondary, keywords=keywords)
+    advices = _trend_advices(primary=primary, secondary=secondary, keywords=keywords, article_angle=article_angle)
     return Topic(
         id=trend_topic_id(snapshot),
         name=f"热点：{primary}",
@@ -155,11 +163,22 @@ def topic_from_trends(snapshot: TrendSnapshot) -> Topic:
     )
 
 
-def _trend_advices(*, primary: str, secondary: str, keywords: list[str]) -> list[Advice]:
+def _title_from_style(primary: str, title_style: str, snapshot: TrendSnapshot) -> str:
+    if title_style == "ten_lessons":
+        return f"餐饮老板想赚钱，先把{primary}这10件事想明白"
+    if title_style == "data_signal":
+        return f"餐饮老板注意：{primary}背后藏着10个经营信号"
+    if title_style == "question_hook":
+        return f"{primary}为什么突然火了？餐饮老板要看这10点"
+    return title_base_from_trends(snapshot)
+
+
+def _trend_advices(*, primary: str, secondary: str, keywords: list[str], article_angle: str = "") -> list[Advice]:
     joined = "、".join(keywords[:5])
+    angle = article_angle or "门店今天能执行的动作"
     rows = [
         ("热点先别急着跟风", f"{primary}能上热度，说明顾客和市场都在关注。但老板先别急着学表面，先看它和你店里的产品、客群、价格带有没有关系。"),
-        ("先问它影响哪笔钱", f"任何热点都要落到账上：会影响客流、客单、毛利，还是复购？说不清影响哪笔钱，就先不要乱投入。"),
+        ("先问它影响哪笔钱", f"任何热点都要落到账上：会影响客流、客单、毛利，还是复购？今天先按{angle}来判断，说不清影响哪笔钱，就先不要乱投入。"),
         ("顾客关心的是具体体验", f"{primary}背后通常不是一个概念，而是顾客对安全、价格、速度、服务的感受。门店要把感受做出来。"),
         ("菜单要跟着需求微调", f"如果{secondary}也在被讨论，就说明顾客选择正在变。菜单不一定大改，但推荐位、套餐和文案要及时调。"),
         ("前厅话术要会解释", f"热点来了，顾客可能会问。员工不能只说不知道，要能用一句简单话讲清楚店里怎么做、为什么放心。"),

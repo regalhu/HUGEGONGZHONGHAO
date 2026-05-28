@@ -7,6 +7,7 @@
   <style>
     body { margin: 0; font-family: "Microsoft YaHei", Arial, sans-serif; background: #f6f3ee; color: #20252d; }
     header { padding: 24px 32px; background: #20252d; color: #fff; }
+    header a { color: #fff; text-decoration: none; font-weight: 700; margin-right: 18px; }
     main { max-width: 1180px; margin: 0 auto; padding: 28px; }
     .toolbar { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; margin-bottom: 24px; }
     label { display: grid; gap: 6px; font-size: 14px; color: #555; }
@@ -26,7 +27,10 @@
 </head>
 <body>
   <header>
+    <a href="{{ url_for('index') }}">草稿列表</a>
+    <a href="{{ url_for('settings_page') }}">生成设置</a>
     <h1>胡哥说餐饮 草稿生成后台</h1>
+    <div style="color:#f4d6bd;font-size:14px;">当前配图：{{ "OpenAI" if tool_settings.image_provider == "openai" else "本地漫画" }} · 标题风格：{{ tool_settings.title_style }}</div>
   </header>
   <main>
     {% if not has_wechat %}

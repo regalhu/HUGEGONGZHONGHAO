@@ -12,6 +12,7 @@ from flask import Flask, Response, abort, redirect, render_template, request, se
 
 from .config import Settings, load_settings
 from .pipeline import build_daily_article
+from .tool_settings import ToolSettings, load_tool_settings, replace_setting, save_tool_settings, tool_settings_path
 
 
 BATCH_SIZE = 10
@@ -37,13 +38,44 @@ def create_app() -> Flask:
         batch_dates = _read_current_batch(settings)
         items = [_preview_item(settings, item) for item in batch_dates]
         items = [item for item in items if item is not None]
+        tool_settings = load_tool_settings(tool_settings_path(settings.output_dir))
         return render_template(
             "dashboard.html",
             items=items,
             today=date.today().isoformat(),
             has_wechat=settings.has_wechat_credentials,
             batch_size=BATCH_SIZE,
+            tool_settings=tool_settings,
         )
+
+    @app.get("/settings")
+    def settings_page() -> str:
+        tool_settings = load_tool_settings(tool_settings_path(settings.output_dir))
+        return render_template("settings.html", settings=tool_settings.masked(), saved=False)
+
+    @app.post("/settings")
+    def save_settings() -> str:
+        path = tool_settings_path(settings.output_dir)
+        existing = load_tool_settings(path)
+        api_key = str(request.form.get("openai_api_key") or "").strip()
+        if not api_key or api_key == "已保存，不在页面显示":
+            api_key = existing.openai_api_key
+        next_settings = ToolSettings(
+            article_angle=str(request.form.get("article_angle") or "").strip(),
+            keyword_override=str(request.form.get("keyword_override") or "").strip(),
+            title_style=str(request.form.get("title_style") or "hot_warning").strip(),
+            image_provider=str(request.form.get("image_provider") or "local").strip(),
+            openai_api_key=api_key,
+            openai_image_model=str(request.form.get("openai_image_model") or "gpt-image-1").strip(),
+            openai_image_size=str(request.form.get("openai_image_size") or "1024x1024").strip(),
+            openai_image_quality=str(request.form.get("openai_image_quality") or "low").strip(),
+            huge_profile_prompt=str(request.form.get("huge_profile_prompt") or "").strip(),
+            image_style_prompt=str(request.form.get("image_style_prompt") or "").strip(),
+        )
+        if next_settings.image_provider not in {"local", "openai"}:
+            next_settings = replace_setting(next_settings, image_provider="local")
+        save_tool_settings(path, next_settings)
+        return render_template("settings.html", settings=next_settings.masked(), saved=True)
 
     @app.post("/generate")
     def generate_batch() -> Response:

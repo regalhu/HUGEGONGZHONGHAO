@@ -7,6 +7,7 @@ import textwrap
 from PIL import Image, ImageDraw, ImageFont
 
 from .models import Article
+from .tool_settings import ToolSettings
 
 
 CANVAS_SIZE = (900, 383)
@@ -77,7 +78,15 @@ def create_cover(article: Article, brand_name: str, output_path: Path) -> Path:
     return output_path
 
 
-def create_inline_card(article: Article, output_path: Path) -> Path:
+def create_inline_card(article: Article, output_path: Path, tool_settings: ToolSettings | None = None) -> Path:
+    if tool_settings and tool_settings.uses_openai_image:
+        try:
+            from .openai_images import generate_openai_inline_image
+
+            return generate_openai_inline_image(article, tool_settings, output_path)
+        except Exception:
+            pass
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     image = Image.new("RGB", (900, 620), "#fff7ed")
     draw = ImageDraw.Draw(image)

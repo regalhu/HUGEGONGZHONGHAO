@@ -81,6 +81,17 @@ http://127.0.0.1:8765
 - 预览标题、关键词、封面图、胡哥漫画图和正文排版。
 - 点击按钮上传单篇到公众号草稿箱。
 - 点击按钮批量上传本批次到公众号草稿箱。
+- 在「生成设置」里调整文章角度、关键词覆盖、标题风格和配图方式。
+
+### 浏览器里配置文章和配图
+
+打开网页后台后，点击顶部「生成设置」：
+
+- 文章设定：可以选择标题风格，填写生成角度，也可以手动覆盖关键词。
+- 配图设定：默认使用本地漫画图；如果选择 OpenAI 图片生成，需要填写 `OPENAI_API_KEY`。
+- 胡哥形象和图片风格：会一起写入图片提示词，用于生成更贴合文章内容的漫画风格配图。
+
+这里的 OpenAI 连接方式是 API Key，不是模拟登录 ChatGPT 网页账号。API Key 只保存在本机 `data/tool_settings.json` 或 `.env`，不会上传到 GitHub。若 OpenAI 图片生成失败，程序会自动回退到本地漫画图，避免整批草稿中断。
 
 ## 上传公众号草稿
 
@@ -185,6 +196,7 @@ OUTPUT_DIR=outputs
 TOPIC_LIBRARY=data/topic_library.json
 START_ISSUE_NUMBER=229
 ENABLE_TREND_CONTENT=true
+OPENAI_API_KEY=可选，OpenAI图片生成使用
 ```
 
 部署启动命令：

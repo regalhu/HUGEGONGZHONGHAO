@@ -11,6 +11,7 @@ from .history import history_path, issue_number_for_date, read_history, record_h
 from .images import create_cover, create_inline_card
 from .render import render_article_html
 from .topic_factory import ensure_fresh_topic_batch
+from .tool_settings import load_tool_settings, tool_settings_path
 from .trends import load_or_fetch_trends
 from .wechat import WeChatClient
 
@@ -33,12 +34,16 @@ def build_daily_article(
     seed: int | None = None,
 ) -> PipelineResult:
     run_dir = settings.output_dir / publish_date.strftime("%Y-%m-%d")
+    tool_settings = load_tool_settings(tool_settings_path(settings.output_dir))
     history_file = history_path(settings.output_dir)
     history = read_history(history_file)
     if settings.enable_trend_content:
         try:
             topic = topic_from_trends(
-                load_or_fetch_trends(output_dir=settings.output_dir, publish_date=publish_date)
+                load_or_fetch_trends(output_dir=settings.output_dir, publish_date=publish_date),
+                title_style=tool_settings.title_style,
+                article_angle=tool_settings.article_angle,
+                keyword_override=tool_settings.keyword_list or None,
             )
         except Exception:
             raw_topics = ensure_fresh_topic_batch(
@@ -76,7 +81,7 @@ def build_daily_article(
     )
 
     cover_path = create_cover(article, settings.brand_name, run_dir / "cover.jpg")
-    inline_path = create_inline_card(article, run_dir / "inline-card.jpg")
+    inline_path = create_inline_card(article, run_dir / "inline-card.jpg", tool_settings=tool_settings)
     html_path = run_dir / "article.html"
     html = render_article_html(
         article,
@@ -129,6 +134,14 @@ def build_daily_article(
                 "article_html": str(html_path),
                 "draft_media_id": draft_media_id,
                 "tags": article.tags,
+                "tool_settings": {
+                    "article_angle": tool_settings.article_angle,
+                    "title_style": tool_settings.title_style,
+                    "image_provider": tool_settings.image_provider,
+                    "openai_image_model": tool_settings.openai_image_model,
+                    "openai_image_size": tool_settings.openai_image_size,
+                    "openai_image_quality": tool_settings.openai_image_quality,
+                },
                 "advices": [
                     {"index": item.index, "title": item.title, "body": item.body}
                     for item in article.advices

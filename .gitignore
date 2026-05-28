@@ -12,3 +12,4 @@ token_cache.json
 data/current_batch.json
 data/publish_history.json
 data/trend_cache.json
+data/tool_settings.json
