@@ -147,9 +147,31 @@ powershell.exe -ExecutionPolicy Bypass -File "C:\Users\regal\Documents\胡哥说
 
 建议先不加自动群发，只自动生成草稿。等你确认内容风格和微信接口都稳定，再决定是否继续接发布接口。
 
-## 上传到 GitHub 和部署
+## 上传到 GitHub，本地运行
 
-GitHub 用来托管代码；网页后台需要部署到能运行 Python 的平台，例如 Render、Railway、Fly.io 或一台云服务器。
+GitHub 用来托管代码和做版本备份；程序可以继续在本地电脑运行，不需要部署到 GitHub。
+
+本地启动网页后台：
+
+```powershell
+cd "C:\Users\regal\Documents\胡哥说餐饮"
+$env:PYTHONPATH="src"
+.\.venv\Scripts\python.exe -m huge_catering.webapp --port 8766
+```
+
+浏览器打开：
+
+```text
+http://127.0.0.1:8766
+```
+
+上传 GitHub 的具体步骤见：
+
+```text
+UPLOAD_TO_GITHUB.md
+```
+
+如果未来要真正放到公网运行，再部署到 Render、Railway、Fly.io 或云服务器。
 
 部署平台需要配置环境变量：
 
