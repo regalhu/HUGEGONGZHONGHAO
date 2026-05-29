@@ -9,6 +9,7 @@ from .config import Settings
 from .content import choose_topic, generate_article, topic_from_trends, topics_from_raw
 from .history import history_path, issue_number_for_date, read_history, record_history
 from .image_checks import ensure_article_images, validate_article_images
+from .image_prompt_workbench import build_workbench_from_article
 from .images import create_cover, create_inline_card
 from .render import render_article_html
 from .topic_factory import ensure_fresh_topic_batch
@@ -156,6 +157,7 @@ def build_daily_article(
                     "errors": (upload_image_check or preview_image_check).errors,
                     "copyright_policy": "文章正文只允许本地原创生成图片，上传后只允许微信素材域名图片。",
                 },
+                "image_prompt_workbench": build_workbench_from_article(article, brand_name=settings.brand_name),
                 "tags": article.tags,
                 "tool_settings": {
                     "article_angle": tool_settings.article_angle,

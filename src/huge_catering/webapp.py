@@ -13,6 +13,7 @@ from flask import Flask, Response, abort, redirect, render_template, request, se
 
 from .config import Settings, load_settings
 from .pipeline import build_daily_article
+from .image_prompt_workbench import build_workbench_from_metadata
 from .tool_settings import ToolSettings, load_tool_settings, replace_setting, save_tool_settings, tool_settings_path
 from .trends import load_or_fetch_trends
 
@@ -189,7 +190,16 @@ def create_app() -> Flask:
         metadata = _read_metadata(settings, parsed, archived=archived)
         if not metadata:
             abort(404)
-        return render_template("preview.html", metadata=metadata, publish_date=publish_date, archived=archived)
+        workbench = metadata.get("image_prompt_workbench")
+        if not isinstance(workbench, dict):
+            workbench = build_workbench_from_metadata(metadata, brand_name=settings.brand_name)
+        return render_template(
+            "preview.html",
+            metadata=metadata,
+            publish_date=publish_date,
+            archived=archived,
+            image_workbench=workbench,
+        )
 
     @app.get("/outputs/<path:filename>")
     def outputs(filename: str) -> Response:

@@ -15,6 +15,16 @@
     iframe { width: 100%; height: 760px; border: 1px solid #e4ded4; background: #fff; border-radius: 8px; }
     .meta { color: #666; line-height: 1.8; }
     .actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0; }
+    .workbench-note { padding: 12px 14px; background: #fff7ed; border-left: 4px solid #c78b2f; color: #4a4137; line-height: 1.7; }
+    .prompt-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    .prompt-card { border: 1px solid #e4ded4; border-radius: 8px; padding: 14px; background: #fffdf9; }
+    .prompt-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+    .prompt-title { font-weight: 800; font-size: 18px; }
+    .ratio { color: #666; font-size: 13px; }
+    .field { margin: 10px 0; }
+    .field b { display: block; margin-bottom: 5px; color: #20252d; }
+    .field p { margin: 0; color: #4b5563; line-height: 1.7; }
+    textarea.prompt-copy { width: 100%; min-height: 150px; box-sizing: border-box; border: 1px solid #d8d1c5; border-radius: 6px; padding: 10px; color: #374151; background: #fff; line-height: 1.6; font-family: "Microsoft YaHei", Arial, sans-serif; }
   </style>
 </head>
 <body>
@@ -59,6 +69,65 @@
       <h2>正文排版</h2>
       <iframe src="{{ url_for('outputs', filename=('_archive/' if archived else '') ~ publish_date ~ '/article.html') }}"></iframe>
     </section>
+    <section class="panel">
+      <h2>图片生成工作台</h2>
+      <div class="workbench-note">
+        当前版本为低成本人工协作模式：系统负责生成高质量图片提示词，图片请复制到 ChatGPT Plus 中生成。后续可升级为 API 自动生成版本。
+      </div>
+      <div class="actions">
+        <a class="button" href="{{ image_workbench.chatgptUrl or 'https://chatgpt.com/' }}" target="_blank" rel="noopener">打开 ChatGPT 图片生成</a>
+      </div>
+      <div class="meta">当前 imageProvider：{{ image_workbench.imageProvider or "manual_chatgpt" }}</div>
+      <div class="prompt-grid">
+        {% for group in image_workbench.groups %}
+          <article class="prompt-card">
+            <div class="prompt-head">
+              <div>
+                <div class="prompt-title">{{ group.purpose }}</div>
+                <div class="ratio">推荐尺寸比例：{{ group.aspect_ratio }}</div>
+              </div>
+              <button type="button" class="copy-button" data-target="prompt-{{ loop.index }}">复制提示词</button>
+            </div>
+            <div class="field">
+              <b>中文提示词</b>
+              <p>{{ group.chinese_prompt }}</p>
+            </div>
+            <div class="field">
+              <b>English Prompt</b>
+              <p>{{ group.english_prompt }}</p>
+            </div>
+            <div class="field">
+              <b>风格说明</b>
+              <p>{{ group.style_notes }}</p>
+            </div>
+            <div class="field">
+              <b>禁止元素</b>
+              <p>{{ group.negative_prompt }}</p>
+            </div>
+            <textarea id="prompt-{{ loop.index }}" class="prompt-copy" readonly>{{ group.copy_text }}</textarea>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
   </main>
+  <script>
+    document.querySelectorAll(".copy-button").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const target = document.getElementById(button.dataset.target);
+        if (!target) return;
+        target.select();
+        target.setSelectionRange(0, target.value.length);
+        try {
+          await navigator.clipboard.writeText(target.value);
+          button.textContent = "已复制";
+          window.setTimeout(() => { button.textContent = "复制提示词"; }, 1400);
+        } catch (error) {
+          document.execCommand("copy");
+          button.textContent = "已复制";
+          window.setTimeout(() => { button.textContent = "复制提示词"; }, 1400);
+        }
+      });
+    });
+  </script>
 </body>
 </html>
