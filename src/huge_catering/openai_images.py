@@ -68,5 +68,6 @@ def _build_prompt(article: Article, settings: ToolSettings) -> str:
         f"固定人物形象：{settings.huge_profile_prompt}。"
         f"风格要求：{settings.image_style_prompt}。"
         "画面中可以出现餐饮门店、菜单、外卖订单、后厨检查、经营数据看板等元素。"
+        "必须是全新原创插画，不要引用影视、动漫、名人、真实品牌商标或受版权保护的图片。"
         "不要生成二维码、公众号界面截图、密集小字或真实品牌商标。"
     )

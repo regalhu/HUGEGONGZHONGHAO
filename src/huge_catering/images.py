@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import re
 import textwrap
+import hashlib
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -54,25 +55,42 @@ def _draw_wrapped(
 
 def create_cover(article: Article, brand_name: str, output_path: Path) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    image = Image.new("RGB", CANVAS_SIZE, BG)
+    palette = _cover_palette(article)
+    image = Image.new("RGB", CANVAS_SIZE, palette["bg"])
     draw = ImageDraw.Draw(image)
 
-    draw.rectangle((0, 0, 900, 383), fill=BG)
-    draw.rectangle((0, 0, 28, 383), fill=RED)
-    draw.rectangle((840, 0, 900, 383), fill=INK)
-    draw.line((80, 72, 820, 72), fill=GOLD, width=4)
-    draw.line((80, 312, 820, 312), fill=GOLD, width=4)
+    draw.rectangle((0, 0, 900, 383), fill=palette["bg"])
+    _draw_cover_pattern(draw, article, palette)
 
-    draw.text((80, 38), brand_name, font=_font(28, bold=True), fill=RED)
-    draw.text((80, 96), "餐饮要赚钱", font=_font(76, bold=True), fill=INK)
-    draw.text((84, 180), "听我10句劝", font=_font(68, bold=True), fill=RED)
-    draw.text(
-        (86, 270),
-        article.publish_date.strftime("%Y.%m.%d"),
-        font=_font(28),
-        fill=MUTED,
-    )
-    draw.text((640, 266), "老板每日复盘", font=_font(30, bold=True), fill=INK)
+    keyword = article.trend_keywords[0] if article.trend_keywords else article.topic_name
+    advice = article.advices[0].title if article.advices else "老板每日复盘"
+    variant = article.issue_number % 3
+    if variant == 0:
+        draw.rectangle((0, 0, 34, 383), fill=palette["accent"])
+        draw.rectangle((700, 0, 900, 383), fill=palette["dark"])
+        draw.text((76, 34), brand_name, font=_font(27, bold=True), fill=palette["accent"])
+        title_y = _draw_wrapped(draw, (76, 86), _cover_title(article.title), _font(46, bold=True), palette["ink"], 15, 8)
+        draw.text((78, min(title_y + 16, 282)), f"关键词：{keyword}", font=_font(27, bold=True), fill=palette["accent"])
+        draw.text((728, 80), "胡哥", font=_font(44, bold=True), fill="#ffffff")
+        draw.text((728, 136), "说餐饮", font=_font(36, bold=True), fill="#ffffff")
+        draw.text((728, 272), f"第{article.issue_number}篇", font=_font(27, bold=True), fill=palette["gold"])
+    elif variant == 1:
+        draw.rectangle((0, 0, 900, 58), fill=palette["dark"])
+        draw.rectangle((64, 96, 836, 292), outline=palette["gold"], width=4)
+        draw.text((70, 18), brand_name, font=_font(27, bold=True), fill="#ffffff")
+        draw.text((710, 18), article.publish_date.strftime("%Y.%m.%d"), font=_font(24), fill=palette["gold"])
+        title_y = _draw_wrapped(draw, (82, 112), _cover_title(article.title), _font(48, bold=True), palette["ink"], 16, 8)
+        draw.text((84, min(title_y + 18, 302)), advice[:22], font=_font(27, bold=True), fill=palette["accent"])
+        draw.text((650, 318), f"关键词 {keyword}", font=_font(25, bold=True), fill=palette["muted"])
+    else:
+        draw.rectangle((0, 0, 900, 383), outline=palette["dark"], width=18)
+        draw.ellipse((54, 72, 218, 236), fill=palette["accent"])
+        draw.text((86, 112), "10", font=_font(76, bold=True), fill="#ffffff")
+        draw.text((94, 194), "句劝", font=_font(30, bold=True), fill="#ffffff")
+        draw.text((266, 42), brand_name, font=_font(27, bold=True), fill=palette["accent"])
+        title_y = _draw_wrapped(draw, (266, 92), _cover_title(article.title), _font(47, bold=True), palette["ink"], 15, 8)
+        draw.text((268, min(title_y + 16, 286)), f"{keyword} / {advice[:16]}", font=_font(26, bold=True), fill=palette["muted"])
+        draw.text((720, 318), f"NO.{article.issue_number}", font=_font(28, bold=True), fill=palette["accent"])
 
     image.save(output_path, quality=95)
     return output_path
@@ -98,7 +116,8 @@ def create_inline_card(article: Article, output_path: Path, tool_settings: ToolS
     _draw_huge_cartoon(draw)
 
     keyword_text = " / ".join(article.trend_keywords[:3]) if article.trend_keywords else article.topic_name
-    draw.text((330, 64), "胡哥漫画复盘", font=_font(42, bold=True), fill=INK)
+    scene = _scene_label(article)
+    draw.text((330, 64), f"胡哥复盘：{scene}", font=_font(36, bold=True), fill=INK)
     draw.text((332, 118), keyword_text[:28], font=_font(28, bold=True), fill=RED)
 
     summary = article.trend_summary or article.digest
@@ -118,6 +137,49 @@ def create_inline_card(article: Article, output_path: Path, tool_settings: ToolS
     draw.text((330, 526), "胡哥说餐饮 | 把热点变成门店动作", font=_font(24), fill=MUTED)
     image.save(output_path, quality=95)
     return output_path
+
+
+def _cover_title(title: str) -> str:
+    return re.sub(r"｜\d+$", "", title)
+
+
+def _cover_palette(article: Article) -> dict[str, str]:
+    palettes = [
+        {"bg": "#fff7ed", "ink": "#1f2933", "accent": "#b42318", "dark": "#20252d", "gold": "#c78b2f", "muted": "#5b6472"},
+        {"bg": "#f3f7f0", "ink": "#1f2933", "accent": "#2f6f4e", "dark": "#17352a", "gold": "#b8872f", "muted": "#51635b"},
+        {"bg": "#f7f4fb", "ink": "#252133", "accent": "#6d3f8f", "dark": "#2b2338", "gold": "#c4933a", "muted": "#625b6b"},
+        {"bg": "#f3f7fb", "ink": "#1f2933", "accent": "#245c7a", "dark": "#183142", "gold": "#c78b2f", "muted": "#536575"},
+    ]
+    return palettes[article.issue_number % len(palettes)]
+
+
+def _draw_cover_pattern(draw: ImageDraw.ImageDraw, article: Article, palette: dict[str, str]) -> None:
+    seed = int(hashlib.sha1(article.title.encode("utf-8")).hexdigest()[:6], 16)
+    for index in range(8):
+        x = 40 + ((seed >> (index * 2)) % 760)
+        y = 70 + ((seed >> (index + 8)) % 230)
+        size = 18 + (seed >> index) % 34
+        draw.rectangle((x, y, x + size, y + size), outline=palette["gold"], width=2)
+
+
+def _scene_label(article: Article) -> str:
+    text = " ".join(article.trend_keywords + [article.title, article.digest, article.trend_summary])
+    scene_map = [
+        ("外卖", "外卖订单"),
+        ("食品安全", "后厨检查"),
+        ("安全", "后厨检查"),
+        ("成本", "成本账本"),
+        ("复购", "顾客回头"),
+        ("茶饮", "茶饮菜单"),
+        ("预制菜", "菜品标准"),
+        ("加盟", "门店管理"),
+        ("客单价", "套餐设计"),
+        ("投诉", "服务复盘"),
+    ]
+    for keyword, scene in scene_map:
+        if keyword in text:
+            return scene
+    return "门店经营"
 
 
 def _draw_huge_cartoon(draw: ImageDraw.ImageDraw) -> None:

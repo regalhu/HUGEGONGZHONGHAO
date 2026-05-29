@@ -8,6 +8,7 @@ from pathlib import Path
 from .config import Settings
 from .content import choose_topic, generate_article, topic_from_trends, topics_from_raw
 from .history import history_path, issue_number_for_date, read_history, record_history
+from .image_checks import ensure_article_images, validate_article_images
 from .images import create_cover, create_inline_card
 from .render import render_article_html
 from .topic_factory import ensure_fresh_topic_batch
@@ -87,11 +88,13 @@ def build_daily_article(
     html = render_article_html(
         article,
         brand_name=settings.brand_name,
-        inline_image_url=None,
+        inline_image_url="inline-card.jpg",
         output_path=html_path,
     )
+    preview_image_check = ensure_article_images(html, html_path=html_path)
 
     draft_media_id: str | None = None
+    upload_image_check = None
     if upload_draft:
         if not settings.has_wechat_credentials:
             raise ValueError("Missing WECHAT_APP_ID or WECHAT_APP_SECRET in .env")
@@ -107,6 +110,7 @@ def build_daily_article(
             inline_image_url=inline_url,
             output_path=html_path,
         )
+        upload_image_check = ensure_article_images(html, html_path=html_path)
         thumb_media_id = client.upload_cover_thumb(cover_path)
         draft_media_id = client.add_draft(
             title=article.title,
@@ -134,6 +138,13 @@ def build_daily_article(
                 "inline_image": str(inline_path),
                 "article_html": str(html_path),
                 "draft_media_id": draft_media_id,
+                "image_check": {
+                    "ok": (upload_image_check or preview_image_check).ok,
+                    "local_images": (upload_image_check or preview_image_check).local_images,
+                    "remote_images": (upload_image_check or preview_image_check).remote_images,
+                    "errors": (upload_image_check or preview_image_check).errors,
+                    "copyright_policy": "文章正文只允许本地原创生成图片，上传后只允许微信素材域名图片。",
+                },
                 "tags": article.tags,
                 "tool_settings": {
                     "article_angle": tool_settings.article_angle,
