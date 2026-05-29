@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 import json
 import os
 from pathlib import Path
+import shutil
 from typing import Any
 
 from flask import Flask, Response, abort, redirect, render_template, request, send_from_directory, url_for
@@ -27,6 +28,7 @@ class PreviewItem:
     keywords: list[str]
     draft_media_id: str | None
     output_dir: Path
+    archived: bool = False
 
 
 def create_app() -> Flask:
@@ -46,6 +48,22 @@ def create_app() -> Flask:
             has_wechat=settings.has_wechat_credentials,
             batch_size=BATCH_SIZE,
             tool_settings=tool_settings,
+            archive_view=False,
+        )
+
+    @app.get("/archive")
+    def archive() -> str:
+        items = [_preview_item(settings, item, archived=True) for item in _read_archived_dates(settings)]
+        items = [item for item in items if item is not None]
+        tool_settings = load_tool_settings(tool_settings_path(settings.output_dir))
+        return render_template(
+            "dashboard.html",
+            items=items,
+            today=date.today().isoformat(),
+            has_wechat=settings.has_wechat_credentials,
+            batch_size=BATCH_SIZE,
+            tool_settings=tool_settings,
+            archive_view=True,
         )
 
     @app.get("/settings")
@@ -113,15 +131,45 @@ def create_app() -> Flask:
             build_daily_article(settings, publish_date=parsed, upload_draft=True)
         return redirect(url_for("preview", publish_date=publish_date))
 
+    @app.post("/drafts/action")
+    def drafts_action() -> Response:
+        action = request.form.get("action") or ""
+        dates = request.form.getlist("dates")
+        if action in {"archive_all", "delete_all"}:
+            dates = _read_current_batch(settings)
+        if action in {"delete_archive_all"}:
+            dates = _read_archived_dates(settings)
+
+        parsed_dates = [parsed for value in dates if (parsed := _parse_date(value)) is not None]
+        if action in {"archive_selected", "archive_all"}:
+            for publish_date in parsed_dates:
+                _archive_draft(settings, publish_date)
+            _write_current_batch(settings, _remove_dates(_read_current_batch(settings), parsed_dates))
+            return redirect(url_for("index"))
+
+        if action in {"delete_selected", "delete_all"}:
+            for publish_date in parsed_dates:
+                _delete_draft(settings, publish_date, archived=False)
+            _write_current_batch(settings, _remove_dates(_read_current_batch(settings), parsed_dates))
+            return redirect(url_for("index"))
+
+        if action in {"delete_archive_selected", "delete_archive_all"}:
+            for publish_date in parsed_dates:
+                _delete_draft(settings, publish_date, archived=True)
+            return redirect(url_for("archive"))
+
+        return redirect(url_for("archive" if request.form.get("archive_view") else "index"))
+
     @app.get("/preview/<publish_date>")
     def preview(publish_date: str) -> str:
         parsed = _parse_date(publish_date)
         if parsed is None:
             abort(404)
-        metadata = _read_metadata(settings, parsed)
+        archived = request.args.get("archived") == "1"
+        metadata = _read_metadata(settings, parsed, archived=archived)
         if not metadata:
             abort(404)
-        return render_template("preview.html", metadata=metadata, publish_date=publish_date)
+        return render_template("preview.html", metadata=metadata, publish_date=publish_date, archived=archived)
 
     @app.get("/outputs/<path:filename>")
     def outputs(filename: str) -> Response:
@@ -179,8 +227,29 @@ def _write_current_batch(settings: Settings, dates: list[str]) -> None:
     path.write_text(json.dumps({"dates": dates}, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _read_metadata(settings: Settings, publish_date: date) -> dict[str, Any] | None:
-    path = settings.output_dir / publish_date.isoformat() / "metadata.json"
+def _archive_root(settings: Settings) -> Path:
+    return settings.output_dir / "_archive"
+
+
+def _draft_dir(settings: Settings, publish_date: date, *, archived: bool = False) -> Path:
+    base = _archive_root(settings) if archived else settings.output_dir
+    return base / publish_date.isoformat()
+
+
+def _read_archived_dates(settings: Settings) -> list[str]:
+    root = _archive_root(settings)
+    if not root.exists():
+        return []
+    dates = [
+        item.name
+        for item in root.iterdir()
+        if item.is_dir() and _parse_date(item.name) is not None and (item / "metadata.json").exists()
+    ]
+    return sorted(dates, reverse=True)
+
+
+def _read_metadata(settings: Settings, publish_date: date, *, archived: bool = False) -> dict[str, Any] | None:
+    path = _draft_dir(settings, publish_date, archived=archived) / "metadata.json"
     if not path.exists():
         return None
     try:
@@ -189,11 +258,11 @@ def _read_metadata(settings: Settings, publish_date: date) -> dict[str, Any] | N
         return None
 
 
-def _preview_item(settings: Settings, publish_date: str) -> PreviewItem | None:
+def _preview_item(settings: Settings, publish_date: str, *, archived: bool = False) -> PreviewItem | None:
     parsed = _parse_date(publish_date)
     if parsed is None:
         return None
-    metadata = _read_metadata(settings, parsed)
+    metadata = _read_metadata(settings, parsed, archived=archived)
     if not metadata:
         return None
     return PreviewItem(
@@ -203,8 +272,38 @@ def _preview_item(settings: Settings, publish_date: str) -> PreviewItem | None:
         topic_name=str(metadata.get("topic_name", "")),
         keywords=[str(item) for item in metadata.get("trend_keywords", [])],
         draft_media_id=metadata.get("draft_media_id"),
-        output_dir=settings.output_dir / publish_date,
+        output_dir=_draft_dir(settings, parsed, archived=archived),
+        archived=archived,
     )
+
+
+def _archive_draft(settings: Settings, publish_date: date) -> None:
+    source = _draft_dir(settings, publish_date, archived=False).resolve()
+    archive_root = _archive_root(settings).resolve()
+    target = (archive_root / publish_date.isoformat()).resolve()
+    output_root = settings.output_dir.resolve()
+    if output_root not in source.parents or archive_root not in target.parents:
+        raise ValueError("Invalid draft path")
+    if not source.exists():
+        return
+    archive_root.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        shutil.rmtree(target)
+    shutil.move(str(source), str(target))
+
+
+def _delete_draft(settings: Settings, publish_date: date, *, archived: bool = False) -> None:
+    target = _draft_dir(settings, publish_date, archived=archived).resolve()
+    allowed_root = (_archive_root(settings) if archived else settings.output_dir).resolve()
+    if allowed_root not in target.parents:
+        raise ValueError("Invalid draft path")
+    if target.exists():
+        shutil.rmtree(target)
+
+
+def _remove_dates(values: list[str], publish_dates: list[date]) -> list[str]:
+    remove = {item.isoformat() for item in publish_dates}
+    return [value for value in values if value not in remove]
 
 
 if __name__ == "__main__":

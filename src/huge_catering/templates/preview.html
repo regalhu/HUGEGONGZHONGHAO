@@ -20,6 +20,9 @@
 <body>
   <main>
     <a class="button secondary" href="{{ url_for('index') }}">返回列表</a>
+    {% if archived %}
+      <a class="button secondary" href="{{ url_for('archive') }}">返回归档</a>
+    {% endif %}
     <a class="button secondary" href="{{ url_for('settings_page') }}">生成设置</a>
     <h1>{{ metadata.title }}</h1>
     <div class="meta">
@@ -28,21 +31,32 @@
       草稿：{{ metadata.draft_media_id or "未上传" }}
     </div>
     <div class="actions">
-      <form method="post" action="{{ url_for('upload_one', publish_date=publish_date) }}">
-        <button type="submit">上传到公众号草稿箱</button>
+      {% if not archived %}
+        <form method="post" action="{{ url_for('upload_one', publish_date=publish_date) }}">
+          <button type="submit">上传到公众号草稿箱</button>
+        </form>
+        <form method="post" action="{{ url_for('drafts_action') }}">
+          <input type="hidden" name="dates" value="{{ publish_date }}">
+          <button class="secondary" type="submit" name="action" value="archive_selected">归档</button>
+        </form>
+      {% endif %}
+      <form method="post" action="{{ url_for('drafts_action') }}">
+        {% if archived %}<input type="hidden" name="archive_view" value="1">{% endif %}
+        <input type="hidden" name="dates" value="{{ publish_date }}">
+        <button type="submit" name="action" value="{{ 'delete_archive_selected' if archived else 'delete_selected' }}">删除</button>
       </form>
     </div>
     <section class="panel">
       <h2>封面图</h2>
-      <img src="{{ url_for('outputs', filename=publish_date ~ '/cover.jpg') }}" alt="封面图">
+      <img src="{{ url_for('outputs', filename=('_archive/' if archived else '') ~ publish_date ~ '/cover.jpg') }}" alt="封面图">
     </section>
     <section class="panel">
       <h2>正文漫画图</h2>
-      <img src="{{ url_for('outputs', filename=publish_date ~ '/inline-card.jpg') }}" alt="正文漫画图">
+      <img src="{{ url_for('outputs', filename=('_archive/' if archived else '') ~ publish_date ~ '/inline-card.jpg') }}" alt="正文漫画图">
     </section>
     <section class="panel">
       <h2>正文排版</h2>
-      <iframe src="{{ url_for('outputs', filename=publish_date ~ '/article.html') }}"></iframe>
+      <iframe src="{{ url_for('outputs', filename=('_archive/' if archived else '') ~ publish_date ~ '/article.html') }}"></iframe>
     </section>
   </main>
 </body>

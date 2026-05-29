@@ -23,13 +23,17 @@
     .chip { background: #f1eee8; color: #4a4137; padding: 3px 8px; border-radius: 999px; font-size: 12px; }
     .actions { display: flex; gap: 8px; margin-top: 14px; }
     .uploaded { color: #16794c; font-weight: 700; }
+    .danger { background: #7f1d1d; }
+    .select-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+    .select-row input { width:18px; height:18px; }
   </style>
 </head>
 <body>
   <header>
     <a href="{{ url_for('index') }}">草稿列表</a>
+    <a href="{{ url_for('archive') }}">归档列表</a>
     <a href="{{ url_for('settings_page') }}">生成设置</a>
-    <h1>胡哥说餐饮 草稿生成后台</h1>
+    <h1>{{ "归档草稿" if archive_view else "胡哥说餐饮 草稿生成后台" }}</h1>
     <div style="color:#f4d6bd;font-size:14px;">当前配图：{{ "OpenAI" if tool_settings.image_provider == "openai" else "本地漫画" }} · 标题风格：{{ tool_settings.title_style }}</div>
   </header>
   <main>
@@ -37,17 +41,19 @@
       <div class="notice">公众号 AppID/AppSecret 未配置。可以生成预览，但不能上传公众号草稿箱。</div>
     {% endif %}
 
-    <form class="toolbar" method="post" action="{{ url_for('generate_batch') }}">
-      <label>起始日期
-        <input type="date" name="start_date" value="{{ today }}">
-      </label>
-      <label>生成篇数
-        <input type="number" name="count" min="1" max="10" value="{{ batch_size }}">
-      </label>
-      <button type="submit">生成10篇预览</button>
-    </form>
+    {% if not archive_view %}
+      <form class="toolbar" method="post" action="{{ url_for('generate_batch') }}">
+        <label>起始日期
+          <input type="date" name="start_date" value="{{ today }}">
+        </label>
+        <label>生成篇数
+          <input type="number" name="count" min="1" max="10" value="{{ batch_size }}">
+        </label>
+        <button type="submit">生成10篇预览</button>
+      </form>
+    {% endif %}
 
-    {% if items %}
+    {% if items and not archive_view %}
       <form method="post" action="{{ url_for('upload_batch') }}">
         {% for item in items %}
           <input type="hidden" name="dates" value="{{ item.publish_date }}">
@@ -56,9 +62,28 @@
       </form>
     {% endif %}
 
+    {% if items %}
+      <form id="manage-form" class="toolbar" method="post" action="{{ url_for('drafts_action') }}" style="margin-top:18px;">
+        {% if archive_view %}
+          <input type="hidden" name="archive_view" value="1">
+          <button class="secondary" type="submit" name="action" value="delete_archive_selected">删除选中</button>
+          <button class="danger" type="submit" name="action" value="delete_archive_all">全部删除</button>
+        {% else %}
+          <button class="secondary" type="submit" name="action" value="archive_selected">归档选中</button>
+          <button class="danger" type="submit" name="action" value="delete_selected">删除选中</button>
+          <button class="secondary" type="submit" name="action" value="archive_all">全部归档</button>
+          <button class="danger" type="submit" name="action" value="delete_all">全部删除</button>
+        {% endif %}
+      </form>
+    {% endif %}
+
     <section class="grid" style="margin-top:18px;">
       {% for item in items %}
         <article class="card">
+          <div class="select-row">
+            <input form="manage-form" type="checkbox" name="dates" value="{{ item.publish_date }}" aria-label="选择 {{ item.title }}">
+            <span class="meta">{{ "已归档" if archive_view else "当前草稿" }}</span>
+          </div>
           <div class="title">{{ item.title }}</div>
           <div class="meta">{{ item.publish_date }} · {{ item.topic_name }}</div>
           <div class="chips">
@@ -72,14 +97,30 @@
             <div class="meta">未上传公众号草稿箱</div>
           {% endif %}
           <div class="actions">
-            <a class="button secondary" href="{{ url_for('preview', publish_date=item.publish_date) }}">预览</a>
-            <form method="post" action="{{ url_for('upload_one', publish_date=item.publish_date) }}">
-              <button type="submit">上传</button>
-            </form>
+            <a class="button secondary" href="{{ url_for('preview', publish_date=item.publish_date, archived=1 if archive_view else 0) }}">预览</a>
+            {% if archive_view %}
+              <form method="post" action="{{ url_for('drafts_action') }}">
+                <input type="hidden" name="archive_view" value="1">
+                <input type="hidden" name="dates" value="{{ item.publish_date }}">
+                <button class="danger" type="submit" name="action" value="delete_archive_selected">删除</button>
+              </form>
+            {% else %}
+              <form method="post" action="{{ url_for('upload_one', publish_date=item.publish_date) }}">
+                <button type="submit">上传</button>
+              </form>
+              <form method="post" action="{{ url_for('drafts_action') }}">
+                <input type="hidden" name="dates" value="{{ item.publish_date }}">
+                <button class="secondary" type="submit" name="action" value="archive_selected">归档</button>
+              </form>
+              <form method="post" action="{{ url_for('drafts_action') }}">
+                <input type="hidden" name="dates" value="{{ item.publish_date }}">
+                <button class="danger" type="submit" name="action" value="delete_selected">删除</button>
+              </form>
+            {% endif %}
           </div>
         </article>
       {% else %}
-        <div class="notice">还没有预览稿。点击上方按钮生成 10 篇。</div>
+        <div class="notice">{{ "归档里还没有草稿。" if archive_view else "还没有预览稿。点击上方按钮生成 10 篇。" }}</div>
       {% endfor %}
     </section>
   </main>
