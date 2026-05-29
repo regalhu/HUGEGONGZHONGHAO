@@ -25,6 +25,10 @@
     .field b { display: block; margin-bottom: 5px; color: #20252d; }
     .field p { margin: 0; color: #4b5563; line-height: 1.7; }
     textarea.prompt-copy { width: 100%; min-height: 150px; box-sizing: border-box; border: 1px solid #d8d1c5; border-radius: 6px; padding: 10px; color: #374151; background: #fff; line-height: 1.6; font-family: "Microsoft YaHei", Arial, sans-serif; }
+    .slot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+    .slot-card { border: 1px solid #e4ded4; border-radius: 8px; padding: 14px; background: #fffdf9; }
+    .slot-card input, .slot-card select { width: 100%; box-sizing: border-box; margin: 8px 0; }
+    .slot-card img { margin: 8px 0; }
   </style>
 </head>
 <body>
@@ -62,8 +66,36 @@
       <img src="{{ url_for('outputs', filename=('_archive/' if archived else '') ~ publish_date ~ '/cover.jpg') }}" alt="封面图">
     </section>
     <section class="panel">
-      <h2>正文漫画图</h2>
-      <img src="{{ url_for('outputs', filename=('_archive/' if archived else '') ~ publish_date ~ '/inline-card.jpg') }}" alt="正文漫画图">
+      <h2>正文图片加载</h2>
+      <div class="workbench-note">
+        公众号正文里的图片位置已预留为空白。你可以先用下方图片生成工作台复制提示词到 ChatGPT Plus 生成图片，再在这里上传并选择加载位置。重新上传或移除图片后，需要重新上传公众号草稿。
+      </div>
+      <div class="slot-grid">
+        {% for slot in image_slots %}
+          <article class="slot-card">
+            <div class="prompt-title">{{ slot.label }}</div>
+            <div class="meta">{{ slot.description }}</div>
+            {% if manual_images.get(slot.id) %}
+              <img src="{{ url_for('outputs', filename=('_archive/' if archived else '') ~ publish_date ~ '/' ~ manual_images.get(slot.id)) }}" alt="{{ slot.label }}">
+              {% if not archived %}
+                <form method="post" action="{{ url_for('remove_preview_image', publish_date=publish_date) }}">
+                  <input type="hidden" name="slot_id" value="{{ slot.id }}">
+                  <button type="submit">移除图片</button>
+                </form>
+              {% endif %}
+            {% else %}
+              <div class="meta">当前为空白图片区</div>
+            {% endif %}
+            {% if not archived %}
+              <form method="post" action="{{ url_for('upload_preview_image', publish_date=publish_date) }}" enctype="multipart/form-data">
+                <input type="hidden" name="slot_id" value="{{ slot.id }}">
+                <input type="file" name="image" accept="image/*" required>
+                <button class="secondary" type="submit">{{ "替换图片" if manual_images.get(slot.id) else "加载图片到此处" }}</button>
+              </form>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
     </section>
     <section class="panel">
       <h2>正文排版</h2>

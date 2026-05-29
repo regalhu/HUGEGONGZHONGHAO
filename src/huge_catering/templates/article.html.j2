@@ -1,10 +1,12 @@
 <section style="font-size:16px;line-height:1.85;color:#2f343b;margin:0 auto;max-width:677px;">
   <p style="margin:0 0 18px;">{{ article.intro }}</p>
 
-  {% if inline_image_url %}
-  <p style="margin:20px 0;text-align:center;">
-    <img src="{{ inline_image_url }}" alt="今日金句" style="max-width:100%;height:auto;" />
+  {% if inline_images.after_intro %}
+  <p style="margin:22px 0;text-align:center;">
+    <img src="{{ inline_images.after_intro }}" alt="文章主题配图" style="max-width:100%;height:auto;" />
   </p>
+  {% else %}
+  <section style="margin:22px 0;height:220px;border:1px dashed #d8d1c5;background:#fbfaf7;"></section>
   {% endif %}
 
   {% for advice in article.advices %}
@@ -14,7 +16,33 @@
     </p>
     <p style="margin:0;color:#374151;">{{ advice.body }}</p>
   </section>
+  {% if advice.index == 3 %}
+    {% if inline_images.after_advice_3 %}
+    <p style="margin:22px 0;text-align:center;">
+      <img src="{{ inline_images.after_advice_3 }}" alt="经营动作配图" style="max-width:100%;height:auto;" />
+    </p>
+    {% else %}
+    <section style="margin:22px 0;height:220px;border:1px dashed #d8d1c5;background:#fbfaf7;"></section>
+    {% endif %}
+  {% endif %}
+  {% if advice.index == 7 %}
+    {% if inline_images.after_advice_7 %}
+    <p style="margin:22px 0;text-align:center;">
+      <img src="{{ inline_images.after_advice_7 }}" alt="经营复盘配图" style="max-width:100%;height:auto;" />
+    </p>
+    {% else %}
+    <section style="margin:22px 0;height:220px;border:1px dashed #d8d1c5;background:#fbfaf7;"></section>
+    {% endif %}
+  {% endif %}
   {% endfor %}
+
+  {% if inline_images.before_conclusion %}
+  <p style="margin:24px 0;text-align:center;">
+    <img src="{{ inline_images.before_conclusion }}" alt="文章总结配图" style="max-width:100%;height:auto;" />
+  </p>
+  {% else %}
+  <section style="margin:24px 0;height:220px;border:1px dashed #d8d1c5;background:#fbfaf7;"></section>
+  {% endif %}
 
   <section style="margin:28px 0 8px;padding:18px;background:#1f2933;color:#fff;">
     <p style="margin:0;">{{ article.conclusion }}</p>

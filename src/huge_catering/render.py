@@ -12,6 +12,7 @@ def render_article_html(
     *,
     brand_name: str,
     inline_image_url: str | None = None,
+    inline_images: dict[str, str] | None = None,
     output_path: Path,
 ) -> str:
     template_dir = Path(__file__).resolve().parent / "templates"
@@ -22,7 +23,7 @@ def render_article_html(
     html = env.get_template("article.html.j2").render(
         article=article,
         brand_name=brand_name,
-        inline_image_url=inline_image_url,
+        inline_images=inline_images or ({"after_intro": inline_image_url} if inline_image_url else {}),
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")

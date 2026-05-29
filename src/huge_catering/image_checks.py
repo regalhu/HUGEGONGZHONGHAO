@@ -46,9 +46,6 @@ def validate_article_images(html: str, *, html_path: Path) -> ImageCheckResult:
         elif image_path.stat().st_size <= 0:
             errors.append(f"本地图片为空：{image_path}")
 
-    if not local_images and not remote_images:
-        errors.append("文章正文里没有检测到图片。")
-
     return ImageCheckResult(
         ok=not errors,
         local_images=local_images,

@@ -97,7 +97,7 @@ def build_daily_article(
     html = render_article_html(
         article,
         brand_name=settings.brand_name,
-        inline_image_url="inline-card.jpg",
+        inline_images={},
         output_path=html_path,
     )
     preview_image_check = ensure_article_images(html, html_path=html_path)
@@ -112,11 +112,10 @@ def build_daily_article(
             app_secret=settings.wechat_app_secret or "",
             token_cache_path=Path("token_cache.json"),
         )
-        inline_url = client.upload_content_image(inline_path)
         html = render_article_html(
             article,
             brand_name=settings.brand_name,
-            inline_image_url=inline_url,
+            inline_images={},
             output_path=html_path,
         )
         upload_image_check = ensure_article_images(html, html_path=html_path)
@@ -141,6 +140,9 @@ def build_daily_article(
                 "topic_id": article.topic_id,
                 "topic_name": article.topic_name,
                 "issue_number": article.issue_number,
+                "intro": article.intro,
+                "conclusion": article.conclusion,
+                "source_url": article.source_url,
                 "trend_keywords": article.trend_keywords,
                 "trend_summary": article.trend_summary,
                 "trend_keyword_counts": (used_trend_snapshot.keyword_counts if used_trend_snapshot else None) or {},
@@ -150,6 +152,7 @@ def build_daily_article(
                 "inline_image": str(inline_path),
                 "article_html": str(html_path),
                 "draft_media_id": draft_media_id,
+                "manual_images": {},
                 "image_check": {
                     "ok": (upload_image_check or preview_image_check).ok,
                     "local_images": (upload_image_check or preview_image_check).local_images,

@@ -7,15 +7,20 @@ import json
 import os
 from pathlib import Path
 import shutil
+import tempfile
 from typing import Any
 
 from flask import Flask, Response, abort, redirect, render_template, request, send_from_directory, url_for
 
 from .config import Settings, load_settings
+from .draft_images import article_from_metadata, manual_images_from_metadata, render_metadata_article, save_manual_image, slot_options, valid_slot_ids
+from .image_checks import ensure_article_images
 from .pipeline import build_daily_article
 from .image_prompt_workbench import build_workbench_from_metadata
+from .render import render_article_html
 from .tool_settings import ToolSettings, load_tool_settings, replace_setting, save_tool_settings, tool_settings_path
 from .trends import load_or_fetch_trends
+from .wechat import WeChatClient
 
 
 BATCH_SIZE = 10
@@ -138,7 +143,10 @@ def create_app() -> Flask:
             metadata = _read_metadata(settings, publish_date)
             if metadata and metadata.get("draft_media_id"):
                 continue
-            build_daily_article(settings, publish_date=publish_date, upload_draft=True)
+            if metadata:
+                _upload_existing_draft(settings, publish_date)
+            else:
+                build_daily_article(settings, publish_date=publish_date, upload_draft=True)
         _write_current_batch(settings, [value for value in dates if _parse_date(value)])
         return redirect(url_for("index"))
 
@@ -149,7 +157,79 @@ def create_app() -> Flask:
             abort(404)
         metadata = _read_metadata(settings, parsed)
         if not metadata or not metadata.get("draft_media_id"):
-            build_daily_article(settings, publish_date=parsed, upload_draft=True)
+            if metadata:
+                _upload_existing_draft(settings, parsed)
+            else:
+                build_daily_article(settings, publish_date=parsed, upload_draft=True)
+        return redirect(url_for("preview", publish_date=publish_date))
+
+    @app.post("/preview/<publish_date>/images")
+    def upload_preview_image(publish_date: str) -> Response:
+        parsed = _parse_date(publish_date)
+        if parsed is None:
+            abort(404)
+        slot_id = str(request.form.get("slot_id") or "")
+        if slot_id not in valid_slot_ids():
+            abort(400)
+        image = request.files.get("image")
+        if image is None or not image.filename:
+            return redirect(url_for("preview", publish_date=publish_date))
+        metadata = _read_metadata(settings, parsed)
+        if not metadata:
+            abort(404)
+        run_dir = _draft_dir(settings, parsed)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(image.filename).suffix or ".jpg") as tmp:
+            tmp_path = Path(tmp.name)
+        image.save(tmp_path)
+        try:
+            relative_path = save_manual_image(run_dir, slot_id, tmp_path)
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
+        manual_images = manual_images_from_metadata(metadata)
+        manual_images[slot_id] = relative_path
+        metadata["manual_images"] = manual_images
+        metadata["draft_media_id"] = None
+        html = render_metadata_article(metadata, brand_name=settings.brand_name, run_dir=run_dir)
+        image_check = ensure_article_images(html, html_path=run_dir / "article.html")
+        metadata["image_check"] = {
+            "ok": image_check.ok,
+            "local_images": image_check.local_images,
+            "remote_images": image_check.remote_images,
+            "errors": image_check.errors,
+            "copyright_policy": "文章正文只允许本地原创生成图片，上传后只允许微信素材域名图片。",
+        }
+        _write_metadata(settings, parsed, metadata)
+        return redirect(url_for("preview", publish_date=publish_date))
+
+    @app.post("/preview/<publish_date>/images/remove")
+    def remove_preview_image(publish_date: str) -> Response:
+        parsed = _parse_date(publish_date)
+        if parsed is None:
+            abort(404)
+        slot_id = str(request.form.get("slot_id") or "")
+        metadata = _read_metadata(settings, parsed)
+        if not metadata or slot_id not in valid_slot_ids():
+            abort(404)
+        manual_images = manual_images_from_metadata(metadata)
+        relative_path = manual_images.pop(slot_id, "")
+        if relative_path:
+            image_path = (_draft_dir(settings, parsed) / relative_path).resolve()
+            if _draft_dir(settings, parsed).resolve() in image_path.parents and image_path.exists():
+                image_path.unlink()
+        metadata["manual_images"] = manual_images
+        metadata["draft_media_id"] = None
+        run_dir = _draft_dir(settings, parsed)
+        html = render_metadata_article(metadata, brand_name=settings.brand_name, run_dir=run_dir)
+        image_check = ensure_article_images(html, html_path=run_dir / "article.html")
+        metadata["image_check"] = {
+            "ok": image_check.ok,
+            "local_images": image_check.local_images,
+            "remote_images": image_check.remote_images,
+            "errors": image_check.errors,
+            "copyright_policy": "文章正文只允许本地原创生成图片，上传后只允许微信素材域名图片。",
+        }
+        _write_metadata(settings, parsed, metadata)
         return redirect(url_for("preview", publish_date=publish_date))
 
     @app.post("/drafts/action")
@@ -199,6 +279,8 @@ def create_app() -> Flask:
             publish_date=publish_date,
             archived=archived,
             image_workbench=workbench,
+            image_slots=slot_options(),
+            manual_images=manual_images_from_metadata(metadata),
         )
 
     @app.get("/outputs/<path:filename>")
@@ -288,6 +370,11 @@ def _read_metadata(settings: Settings, publish_date: date, *, archived: bool = F
         return None
 
 
+def _write_metadata(settings: Settings, publish_date: date, metadata: dict[str, Any]) -> None:
+    path = _draft_dir(settings, publish_date) / "metadata.json"
+    path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def _preview_item(settings: Settings, publish_date: str, *, archived: bool = False) -> PreviewItem | None:
     parsed = _parse_date(publish_date)
     if parsed is None:
@@ -345,6 +432,52 @@ def _delete_draft(settings: Settings, publish_date: date, *, archived: bool = Fa
 def _remove_dates(values: list[str], publish_dates: list[date]) -> list[str]:
     remove = {item.isoformat() for item in publish_dates}
     return [value for value in values if value not in remove]
+
+
+def _upload_existing_draft(settings: Settings, publish_date: date) -> None:
+    metadata = _read_metadata(settings, publish_date)
+    if not metadata:
+        build_daily_article(settings, publish_date=publish_date, upload_draft=True)
+        return
+    if not settings.has_wechat_credentials:
+        raise ValueError("Missing WECHAT_APP_ID or WECHAT_APP_SECRET in .env")
+    run_dir = _draft_dir(settings, publish_date)
+    article = article_from_metadata(metadata)
+    client = WeChatClient(
+        app_id=settings.wechat_app_id or "",
+        app_secret=settings.wechat_app_secret or "",
+        token_cache_path=Path("token_cache.json"),
+    )
+    remote_images: dict[str, str] = {}
+    for slot_id, relative_path in manual_images_from_metadata(metadata).items():
+        image_path = run_dir / relative_path
+        if image_path.exists():
+            remote_images[slot_id] = client.upload_content_image(image_path)
+    html = render_article_html(
+        article,
+        brand_name=settings.brand_name,
+        inline_images=remote_images,
+        output_path=run_dir / "article.html",
+    )
+    image_check = ensure_article_images(html, html_path=run_dir / "article.html")
+    thumb_media_id = client.upload_cover_thumb(run_dir / "cover.jpg")
+    draft_media_id = client.add_draft(
+        title=article.title,
+        author=article.author,
+        digest=article.digest,
+        content=html,
+        thumb_media_id=thumb_media_id,
+        content_source_url=article.source_url,
+    )
+    metadata["draft_media_id"] = draft_media_id
+    metadata["image_check"] = {
+        "ok": image_check.ok,
+        "local_images": image_check.local_images,
+        "remote_images": image_check.remote_images,
+        "errors": image_check.errors,
+        "copyright_policy": "文章正文只允许本地原创生成图片，上传后只允许微信素材域名图片。",
+    }
+    _write_metadata(settings, publish_date, metadata)
 
 
 if __name__ == "__main__":
