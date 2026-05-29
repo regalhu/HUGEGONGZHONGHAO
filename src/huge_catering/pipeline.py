@@ -13,7 +13,7 @@ from .images import create_cover, create_inline_card
 from .render import render_article_html
 from .topic_factory import ensure_fresh_topic_batch
 from .tool_settings import load_tool_settings, tool_settings_path
-from .trends import load_or_fetch_trends
+from .trends import TrendSnapshot, load_or_fetch_trends, snapshot_for_keyword
 from .wechat import WeChatClient
 
 
@@ -33,11 +33,14 @@ def build_daily_article(
     publish_date: date,
     upload_draft: bool = False,
     seed: int | None = None,
+    trend_snapshot: TrendSnapshot | None = None,
+    trend_keyword: str | None = None,
 ) -> PipelineResult:
     run_dir = settings.output_dir / publish_date.strftime("%Y-%m-%d")
     tool_settings = load_tool_settings(tool_settings_path(settings.output_dir))
     history_file = history_path(settings.output_dir)
     history = read_history(history_file)
+    used_trend_snapshot = trend_snapshot
     issue_number = issue_number_for_date(
         history,
         publish_date,
@@ -45,8 +48,13 @@ def build_daily_article(
     )
     if settings.enable_trend_content:
         try:
+            snapshot = trend_snapshot or load_or_fetch_trends(output_dir=settings.output_dir, publish_date=publish_date)
+            used_trend_snapshot = snapshot
+            if trend_keyword:
+                snapshot = snapshot_for_keyword(snapshot, trend_keyword)
+                used_trend_snapshot = snapshot
             topic = topic_from_trends(
-                load_or_fetch_trends(output_dir=settings.output_dir, publish_date=publish_date),
+                snapshot,
                 title_style=tool_settings.title_style,
                 article_angle=tool_settings.article_angle,
                 keyword_override=tool_settings.keyword_list or None,
@@ -134,6 +142,9 @@ def build_daily_article(
                 "issue_number": article.issue_number,
                 "trend_keywords": article.trend_keywords,
                 "trend_summary": article.trend_summary,
+                "trend_keyword_counts": (used_trend_snapshot.keyword_counts if used_trend_snapshot else None) or {},
+                "trend_focus_keyword": trend_keyword,
+                "trend_sources": (used_trend_snapshot.source_titles if used_trend_snapshot else [])[:10],
                 "cover_image": str(cover_path),
                 "inline_image": str(inline_path),
                 "article_html": str(html_path),

@@ -28,6 +28,7 @@
     <div class="meta">
       日期：{{ metadata.publish_date }}<br>
       关键词：{{ metadata.trend_keywords | join("、") }}<br>
+      {% if metadata.trend_focus_keyword %}本篇热点：{{ metadata.trend_focus_keyword }}<br>{% endif %}
       草稿：{{ metadata.draft_media_id or "未上传" }}
     </div>
     <div class="actions">

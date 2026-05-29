@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta
 from email.utils import parsedate_to_datetime
 import hashlib
@@ -20,9 +20,27 @@ TREND_QUERIES = [
     "餐饮 消费 门店",
     "餐饮 老板 经营",
     "预制菜 外卖 茶饮 餐饮",
+    "餐饮 社交媒体 热议",
+    "餐饮 抖音 小红书 热点",
+    "餐饮 微博 热搜",
+    "茶饮 咖啡 火锅 外卖 热点",
+    "美团 饿了么 京东 外卖 餐饮",
 ]
 
 BING_NEWS_URL = "https://www.bing.com/news/search"
+BING_WEB_URL = "https://www.bing.com/search"
+BAIDU_URL = "https://www.baidu.com/s"
+SOGOU_WEIXIN_URL = "https://weixin.sogou.com/weixin"
+TOUTIAO_SEARCH_URL = "https://www.toutiao.com/search"
+
+SOCIAL_SEARCH_QUERIES = [
+    "site:weibo.com 餐饮 外卖 热点",
+    "site:xiaohongshu.com 餐饮 外卖 茶饮",
+    "site:douyin.com 餐饮 外卖 食品安全",
+    "site:bilibili.com 餐饮 探店 外卖",
+    "site:zhihu.com 餐饮 消费 门店",
+    "site:mp.weixin.qq.com 餐饮 外卖 预制菜",
+]
 
 DOUYIN_HOT_URLS = [
     "https://www.douyin.com/hot",
@@ -87,6 +105,7 @@ class TrendSnapshot:
     keywords: list[str]
     summary: str
     source_titles: list[str]
+    keyword_counts: dict[str, int] | None = None
 
 
 def trend_cache_path(output_dir: Path) -> Path:
@@ -99,13 +118,16 @@ def load_or_fetch_trends(*, output_dir: Path, publish_date: date) -> TrendSnapsh
     cache = _read_cache(cache_path)
     key = target_date.isoformat()
     if key in cache:
-        return _snapshot_from_cache(target_date, cache[key])
+        cached = _snapshot_from_cache(target_date, cache[key])
+        if len(cached.keywords) >= 10 and cached.keyword_counts:
+            return cached
 
     snapshot = fetch_yesterday_catering_trends(target_date=target_date)
     cache[key] = {
         "keywords": snapshot.keywords,
         "summary": snapshot.summary,
         "source_titles": snapshot.source_titles,
+        "keyword_counts": snapshot.keyword_counts or {},
     }
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -117,33 +139,47 @@ def fetch_yesterday_catering_trends(*, target_date: date) -> TrendSnapshot:
     for query in TREND_QUERIES:
         try:
             titles.extend(_bing_news_titles(query=query, target_date=target_date))
+            titles.extend(_bing_web_titles(query=query))
+            titles.extend(_baidu_titles(query=query))
+            titles.extend(_sogou_weixin_titles(query=query))
+            titles.extend(_toutiao_titles(query=query))
         except requests.RequestException:
             continue
         except ET.ParseError:
             continue
+    for query in SOCIAL_SEARCH_QUERIES:
+        try:
+            titles.extend(_bing_web_titles(query=query))
+        except requests.RequestException:
+            continue
     titles.extend(_douyin_hot_titles())
 
     unique_titles = list(dict.fromkeys(title for title in titles if title.strip()))
-    keywords = extract_keywords(unique_titles)
+    keyword_counts = extract_keyword_counts(unique_titles)
+    keywords = [word for word, _ in keyword_counts.most_common(10)]
     if not keywords:
         keywords = FALLBACK_KEYWORDS
     summary = _build_summary(keywords, unique_titles)
     return TrendSnapshot(
         target_date=target_date,
-        keywords=keywords[:5],
+        keywords=keywords[:10],
         summary=summary,
-        source_titles=unique_titles[:8],
+        source_titles=unique_titles[:30],
+        keyword_counts=dict(keyword_counts.most_common(20)),
     )
 
 
 def extract_keywords(titles: list[str]) -> list[str]:
+    return [word for word, _ in extract_keyword_counts(titles).most_common(10)]
+
+
+def extract_keyword_counts(titles: list[str]) -> Counter[str]:
     text = " ".join(titles)
     term_counter: Counter[str] = Counter()
     for term in HOT_TERMS:
         count = text.count(term)
         if count:
             term_counter[term] += count
-    known_terms = [term for term, _ in term_counter.most_common(8)]
 
     candidates = re.findall(r"[\u4e00-\u9fffA-Za-z0-9]{2,12}", text)
     counter: Counter[str] = Counter()
@@ -157,13 +193,33 @@ def extract_keywords(titles: list[str]) -> list[str]:
         if re.fullmatch(r"\d+", word):
             continue
         counter[word] += 1
-    preferred = [
-        word
-        for word, _ in counter.most_common(20)
-        if any(seed in word for seed in ["外卖", "食品", "安全", "成本", "茶饮", "预制", "消费", "门店", "价格", "复购", "服务", "加盟", "供应"])
-    ]
-    rest = [word for word, _ in counter.most_common(20) if word not in preferred]
-    return (known_terms + [word for word in preferred + rest if word not in known_terms])[:5]
+    combined: Counter[str] = Counter()
+    combined.update(term_counter)
+    for word, count in counter.items():
+        combined[word] += count
+    preferred = Counter(
+        {
+            word: count
+            for word, count in combined.items()
+            if any(seed in word for seed in ["外卖", "食品", "安全", "成本", "茶饮", "预制", "消费", "门店", "价格", "复购", "服务", "加盟", "供应", "火锅", "咖啡", "奶茶", "美团", "饿了么", "京东", "探店"])
+        }
+    )
+    if preferred:
+        rest = Counter({word: count for word, count in combined.items() if word not in preferred})
+        preferred.update({word: count for word, count in rest.most_common(10)})
+        return preferred
+    return combined
+
+
+def snapshot_for_keyword(snapshot: TrendSnapshot, keyword: str) -> TrendSnapshot:
+    keywords = [keyword] + [item for item in snapshot.keywords if item != keyword]
+    count = (snapshot.keyword_counts or {}).get(keyword, 0)
+    summary = (
+        f"昨天公开信息源中，{keyword}在餐饮相关标题和摘要里引用频次靠前"
+        f"{f'，统计引用约{count}次' if count else ''}。"
+        "适合从客流、毛利、体验、复购和风险控制角度拆成门店动作。"
+    )
+    return replace(snapshot, keywords=keywords[:10], summary=summary)
 
 
 def trend_topic_id(snapshot: TrendSnapshot) -> str:
@@ -224,6 +280,69 @@ def _bing_html_titles(html: str) -> list[str]:
             if _looks_like_catering_title(title):
                 titles.append(title)
     return list(dict.fromkeys(titles))[:12]
+
+
+def _bing_web_titles(*, query: str) -> list[str]:
+    response = requests.get(
+        BING_WEB_URL,
+        params={"q": query},
+        headers=_browser_headers(),
+        timeout=20,
+    )
+    response.raise_for_status()
+    return _generic_html_titles(response.text)[:12]
+
+
+def _baidu_titles(*, query: str) -> list[str]:
+    response = requests.get(
+        BAIDU_URL,
+        params={"wd": query},
+        headers=_browser_headers(),
+        timeout=20,
+    )
+    response.raise_for_status()
+    return _generic_html_titles(response.text)[:10]
+
+
+def _sogou_weixin_titles(*, query: str) -> list[str]:
+    response = requests.get(
+        SOGOU_WEIXIN_URL,
+        params={"type": "2", "query": query},
+        headers=_browser_headers(),
+        timeout=20,
+    )
+    response.raise_for_status()
+    return _generic_html_titles(response.text)[:10]
+
+
+def _toutiao_titles(*, query: str) -> list[str]:
+    response = requests.get(
+        TOUTIAO_SEARCH_URL,
+        params={"keyword": query},
+        headers=_browser_headers(),
+        timeout=20,
+    )
+    response.raise_for_status()
+    return _generic_html_titles(response.text)[:10]
+
+
+def _generic_html_titles(html: str) -> list[str]:
+    titles: list[str] = []
+    for pattern in [
+        r"<title[^>]*>(.*?)</title>",
+        r"<h1[^>]*>(.*?)</h1>",
+        r"<h2[^>]*>(.*?)</h2>",
+        r"<h3[^>]*>(.*?)</h3>",
+        r'"title"\s*:\s*"([^"]{4,120})"',
+        r'"word"\s*:\s*"([^"]{2,60})"',
+        r'"sentence"\s*:\s*"([^"]{2,80})"',
+        r'aria-label="([^"]{4,120})"',
+    ]:
+        for match in re.findall(pattern, html, flags=re.I | re.S):
+            title = _strip_html(_decode_json_text(match))
+            if _looks_like_catering_title(title):
+                titles.append(title)
+    return list(dict.fromkeys(titles))
 
 
 def _douyin_hot_titles() -> list[str]:
@@ -338,9 +457,9 @@ def _browser_headers() -> dict[str, str]:
 
 
 def _build_summary(keywords: list[str], titles: list[str]) -> str:
-    keyword_text = "、".join(keywords[:5])
+    keyword_text = "、".join(keywords[:10])
     if titles:
-        return f"昨天餐饮相关信息集中在{keyword_text}，适合从成本、体验、复购和风险控制角度拆解。"
+        return f"昨天公开信息源中的餐饮相关讨论集中在{keyword_text}，适合从成本、体验、复购和风险控制角度拆解。"
     return f"未抓到稳定新闻源，今日按{keyword_text}这些餐饮经营关键词生成稳妥选题。"
 
 
@@ -360,4 +479,9 @@ def _snapshot_from_cache(target_date: date, raw: dict[str, object]) -> TrendSnap
         keywords=[str(item) for item in raw.get("keywords", FALLBACK_KEYWORDS)],
         summary=str(raw.get("summary", "")),
         source_titles=[str(item) for item in raw.get("source_titles", [])],
+        keyword_counts={
+            str(key): int(value)
+            for key, value in (raw.get("keyword_counts", {}) if isinstance(raw.get("keyword_counts"), dict) else {}).items()
+            if isinstance(value, int)
+        },
     )

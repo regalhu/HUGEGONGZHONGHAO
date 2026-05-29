@@ -14,6 +14,7 @@ from flask import Flask, Response, abort, redirect, render_template, request, se
 from .config import Settings, load_settings
 from .pipeline import build_daily_article
 from .tool_settings import ToolSettings, load_tool_settings, replace_setting, save_tool_settings, tool_settings_path
+from .trends import load_or_fetch_trends
 
 
 BATCH_SIZE = 10
@@ -29,6 +30,8 @@ class PreviewItem:
     draft_media_id: str | None
     output_dir: Path
     archived: bool = False
+    focus_keyword: str | None = None
+    focus_count: int | None = None
 
 
 def create_app() -> Flask:
@@ -99,10 +102,27 @@ def create_app() -> Flask:
     def generate_batch() -> Response:
         start_date = _parse_date(request.form.get("start_date")) or date.today()
         count = int(request.form.get("count") or BATCH_SIZE)
+        tool_settings = load_tool_settings(tool_settings_path(settings.output_dir))
+        trend_snapshot = None
+        trend_keywords: list[str] = []
+        if settings.enable_trend_content and not tool_settings.keyword_list:
+            try:
+                trend_snapshot = load_or_fetch_trends(output_dir=settings.output_dir, publish_date=start_date)
+                trend_keywords = trend_snapshot.keywords[:count]
+            except Exception:
+                trend_snapshot = None
+                trend_keywords = []
         dates: list[str] = []
         for offset in range(count):
             publish_date = start_date + timedelta(days=offset)
-            build_daily_article(settings, publish_date=publish_date, upload_draft=False)
+            keyword = trend_keywords[offset] if offset < len(trend_keywords) else None
+            build_daily_article(
+                settings,
+                publish_date=publish_date,
+                upload_draft=False,
+                trend_snapshot=trend_snapshot,
+                trend_keyword=keyword,
+            )
             dates.append(publish_date.isoformat())
         _write_current_batch(settings, dates)
         return redirect(url_for("index"))
@@ -274,7 +294,18 @@ def _preview_item(settings: Settings, publish_date: str, *, archived: bool = Fal
         draft_media_id=metadata.get("draft_media_id"),
         output_dir=_draft_dir(settings, parsed, archived=archived),
         archived=archived,
+        focus_keyword=str(metadata.get("trend_focus_keyword") or "") or None,
+        focus_count=_focus_count(metadata),
     )
+
+
+def _focus_count(metadata: dict[str, Any]) -> int | None:
+    keyword = str(metadata.get("trend_focus_keyword") or "")
+    counts = metadata.get("trend_keyword_counts")
+    if not keyword or not isinstance(counts, dict):
+        return None
+    value = counts.get(keyword)
+    return value if isinstance(value, int) else None
 
 
 def _archive_draft(settings: Settings, publish_date: date) -> None:
