@@ -8,9 +8,10 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class ToolSettings:
+    article_type: str = "ten_lessons"
+    next_issue_number: str = ""
     article_angle: str = "把热点拆成门店今天能执行的动作"
     keyword_override: str = ""
-    title_style: str = "hot_warning"
     image_provider: str = "local"
     openai_api_key: str = ""
     openai_image_model: str = "gpt-image-1"
@@ -51,6 +52,8 @@ def load_tool_settings(path: Path) -> ToolSettings:
         return ToolSettings()
     if not isinstance(raw, dict):
         return ToolSettings()
+    if "article_type" not in raw and "title_style" in raw:
+        raw["article_type"] = "ten_lessons" if raw.get("title_style") == "ten_lessons" else "hot_interpretation"
     fields = {field: raw.get(field) for field in ToolSettings.__dataclass_fields__}
     clean = {key: value for key, value in fields.items() if isinstance(value, str)}
     loaded = ToolSettings(**clean)

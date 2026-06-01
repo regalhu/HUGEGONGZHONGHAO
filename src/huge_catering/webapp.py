@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
+import time
 from typing import Any
 
 from flask import Flask, Response, abort, redirect, render_template, request, send_from_directory, url_for
@@ -23,7 +24,8 @@ from .trends import load_or_fetch_trends
 from .wechat import WeChatClient
 
 
-BATCH_SIZE = 10
+BATCH_SIZE = 5
+MAX_BATCH_SIZE = 10
 
 
 @dataclass(frozen=True)
@@ -40,6 +42,8 @@ class PreviewItem:
     focus_count: int | None = None
     manual_images: dict[str, str] | None = None
     image_workbench: dict[str, Any] | None = None
+    copy_markdown: str = ""
+    copy_html: str = ""
 
 
 def create_app() -> Flask:
@@ -90,9 +94,10 @@ def create_app() -> Flask:
         path = tool_settings_path(settings.output_dir)
         existing = load_tool_settings(path)
         next_settings = ToolSettings(
+            article_type=_clean_article_type(request.form.get("article_type")),
+            next_issue_number=str(request.form.get("next_issue_number") or "").strip(),
             article_angle=str(request.form.get("article_angle") or "").strip(),
             keyword_override=str(request.form.get("keyword_override") or "").strip(),
-            title_style=str(request.form.get("title_style") or "hot_warning").strip(),
             image_provider=existing.image_provider,
             openai_api_key=existing.openai_api_key,
             openai_image_model=existing.openai_image_model,
@@ -107,8 +112,10 @@ def create_app() -> Flask:
     @app.post("/generate")
     def generate_batch() -> Response:
         start_date = _parse_date(request.form.get("start_date")) or date.today()
-        count = int(request.form.get("count") or BATCH_SIZE)
+        count = _clamp_count(request.form.get("count"))
+        regenerate = request.form.get("regenerate") == "1"
         tool_settings = load_tool_settings(tool_settings_path(settings.output_dir))
+        issue_base = _parse_positive_int(tool_settings.next_issue_number)
         trend_snapshot = None
         trend_keywords: list[str] = []
         if settings.enable_trend_content and not tool_settings.keyword_list:
@@ -126,11 +133,15 @@ def create_app() -> Flask:
                 settings,
                 publish_date=publish_date,
                 upload_draft=False,
+                seed=int(time.time()) + offset if regenerate else None,
                 trend_snapshot=trend_snapshot,
                 trend_keyword=keyword,
+                issue_number_override=issue_base + offset if issue_base else None,
             )
             dates.append(publish_date.isoformat())
         _write_current_batch(settings, dates)
+        if tool_settings.article_type == "ten_lessons":
+            _save_next_issue_from_batch(settings, tool_settings, dates)
         return redirect(url_for("index"))
 
     @app.post("/upload")
@@ -312,6 +323,8 @@ def create_app() -> Flask:
             image_workbench=workbench,
             image_slots=slot_options(),
             manual_images=manual_images_from_metadata(metadata),
+            copy_markdown=_draft_markdown(metadata),
+            copy_html=_draft_copy_html(settings, parsed, metadata, archived=archived),
         )
 
     @app.get("/outputs/<path:filename>")
@@ -346,6 +359,29 @@ def _parse_date(value: str | None) -> date | None:
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError:
         return None
+
+
+def _parse_positive_int(value: str | None) -> int | None:
+    try:
+        number = int(str(value or "").strip())
+    except ValueError:
+        return None
+    return number if number > 0 else None
+
+
+def _clamp_count(value: str | None) -> int:
+    try:
+        count = int(str(value or "").strip())
+    except ValueError:
+        return BATCH_SIZE
+    return max(1, min(MAX_BATCH_SIZE, count))
+
+
+def _clean_article_type(value: str | None) -> str:
+    article_type = str(value or "").strip()
+    if article_type in {"ten_lessons", "hot_interpretation", "methodology"}:
+        return article_type
+    return "ten_lessons"
 
 
 def _batch_path(settings: Settings) -> Path:
@@ -426,6 +462,8 @@ def _preview_item(settings: Settings, publish_date: str, *, archived: bool = Fal
         focus_count=_focus_count(metadata),
         manual_images=manual_images_from_metadata(metadata),
         image_workbench=_workbench_from_metadata(metadata, settings),
+        copy_markdown=_draft_markdown(metadata),
+        copy_html=_draft_copy_html(settings, parsed, metadata, archived=archived),
     )
 
 
@@ -513,6 +551,65 @@ def _upload_existing_draft(settings: Settings, publish_date: date) -> None:
         "copyright_policy": "文章正文只允许本地原创生成图片，上传后只允许微信素材域名图片。",
     }
     _write_metadata(settings, publish_date, metadata)
+
+
+def _save_next_issue_from_batch(settings: Settings, tool_settings: ToolSettings, dates: list[str]) -> None:
+    issue_numbers: list[int] = []
+    for value in dates:
+        parsed = _parse_date(value)
+        if parsed is None:
+            continue
+        metadata = _read_metadata(settings, parsed)
+        issue = metadata.get("issue_number") if metadata else None
+        if isinstance(issue, int):
+            issue_numbers.append(issue)
+    if not issue_numbers:
+        return
+    save_tool_settings(
+        tool_settings_path(settings.output_dir),
+        ToolSettings(
+            article_type=tool_settings.article_type,
+            next_issue_number=str(max(issue_numbers) + 1),
+            article_angle=tool_settings.article_angle,
+            keyword_override=tool_settings.keyword_override,
+            image_provider=tool_settings.image_provider,
+            openai_api_key=tool_settings.openai_api_key,
+            openai_image_model=tool_settings.openai_image_model,
+            openai_image_size=tool_settings.openai_image_size,
+            openai_image_quality=tool_settings.openai_image_quality,
+            huge_profile_prompt=tool_settings.huge_profile_prompt,
+            image_style_prompt=tool_settings.image_style_prompt,
+        ),
+    )
+
+
+def _draft_markdown(metadata: dict[str, Any]) -> str:
+    lines = [
+        f"# {metadata.get('title', '')}",
+        "",
+        "[图片插入位]",
+        "",
+        str(metadata.get("intro", "")),
+        "",
+    ]
+    for item in metadata.get("advices", []):
+        if not isinstance(item, dict):
+            continue
+        lines.extend(
+            [
+                f"{item.get('index', '')}. {item.get('title', '')}",
+                str(item.get("body", "")),
+                "",
+            ]
+        )
+    lines.extend(["总结：", str(metadata.get("conclusion", ""))])
+    return "\n".join(lines).strip()
+
+
+def _draft_copy_html(settings: Settings, publish_date: date, metadata: dict[str, Any], *, archived: bool = False) -> str:
+    html_path = _draft_dir(settings, publish_date, archived=archived) / "article.html"
+    body = html_path.read_text(encoding="utf-8") if html_path.exists() else ""
+    return f"<h1>{metadata.get('title', '')}</h1>\n{body}".strip()
 
 
 if __name__ == "__main__":

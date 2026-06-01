@@ -109,8 +109,9 @@ def generate_article(
     publish_date: date,
     topic: Topic,
     issue_number: int,
+    article_type: str = "ten_lessons",
 ) -> Article:
-    title = f"{topic.title}｜{issue_number}"
+    title = _article_title(topic=topic, issue_number=issue_number, article_type=article_type)
     conclusion = (
         f"我是{author_name}，每天陪餐饮老板把账算清、把店管顺。"
         f"关注「{brand_name}」，咱们一天解决一个真问题。"
@@ -135,7 +136,7 @@ def generate_article(
 def topic_from_trends(
     snapshot: TrendSnapshot,
     *,
-    title_style: str = "hot_warning",
+    article_type: str = "hot_interpretation",
     article_angle: str = "",
     keyword_override: list[str] | None = None,
     title_variant: int | None = None,
@@ -148,7 +149,7 @@ def topic_from_trends(
         primary,
         secondary,
         tertiary,
-        title_style,
+        article_type,
         snapshot,
         title_variant=title_variant,
     )
@@ -176,80 +177,62 @@ def _title_from_style(
     primary: str,
     secondary: str,
     tertiary: str,
-    title_style: str,
+    article_type: str,
     snapshot: TrendSnapshot,
     *,
     title_variant: int | None = None,
 ) -> str:
     if title_variant is None:
-        return _single_title_from_style(primary, title_style, snapshot)
+        return _single_title_from_style(primary, article_type, snapshot)
 
-    templates = _title_templates(primary, secondary, tertiary, title_style)
+    templates = _title_templates(primary, secondary, tertiary, article_type)
     return templates[title_variant % len(templates)]
 
 
-def _single_title_from_style(primary: str, title_style: str, snapshot: TrendSnapshot) -> str:
-    if title_style == "ten_lessons":
-        return f"餐饮老板想赚钱，先把{primary}这10件事想明白"
-    if title_style == "data_signal":
-        return f"餐饮老板注意：{primary}背后藏着10个经营信号"
-    if title_style == "question_hook":
-        return f"{primary}为什么突然火了？餐饮老板要看这10点"
+def _single_title_from_style(primary: str, article_type: str, snapshot: TrendSnapshot) -> str:
+    if article_type == "methodology":
+        return f"【本周】#{primary}#餐饮老板别乱学，先搭这套赚钱方法"
+    if article_type == "ten_lessons":
+        return "餐饮要赚钱 听我10句劝"
     return title_base_from_trends(snapshot)
 
 
-def _title_templates(primary: str, secondary: str, tertiary: str, title_style: str) -> list[str]:
-    if title_style == "ten_lessons":
+def _title_templates(primary: str, secondary: str, tertiary: str, article_type: str) -> list[str]:
+    if article_type == "ten_lessons":
         return [
-            f"餐饮老板想赚钱，先把{primary}这10件事想明白",
-            f"别只盯{primary}热度，真正赚钱靠这10个动作",
-            f"从{primary}到{secondary}，餐饮老板今天要听10句劝",
-            f"餐饮赚钱不是撞运气，{primary}背后有10个提醒",
-            f"{primary}热起来以后，老板先把这10笔账算清",
-            f"门店想多赚一点，先用10句话看懂{primary}",
-            f"{primary}变了，餐饮老板要记住这10句实话",
-            f"别让{primary}白白过去，今天就改这10件小事",
-            f"餐饮老板别急着跟风，先听胡哥这10句劝",
-            f"围绕{primary}赚钱，老板要先避开这10个坑",
+            "餐饮要赚钱 听我10句劝",
         ]
-    if title_style == "data_signal":
+    if article_type == "methodology":
         return [
-            f"餐饮老板注意：{primary}背后藏着10个经营信号",
-            f"{primary}升温，门店这10个数据要马上看",
-            f"从{primary}看餐饮生意，老板别忽略10个信号",
-            f"{primary}不是热闹，是门店经营的10个提醒",
-            f"顾客在讨论{primary}，老板要盯住这10个变化",
-            f"{primary}正在变化，餐饮老板要抓10个信号",
-            f"今天餐饮热点里，最该复盘的是这10个数据",
-            f"{primary}背后，藏着餐饮门店的10个赚钱信号",
-            f"老板别只看客流，{primary}才是这10个信号的关键",
-            f"餐饮经营要变快，先读懂{primary}这10个信号",
-        ]
-    if title_style == "question_hook":
-        return [
-            f"{primary}为什么突然火了？餐饮老板要看这10点",
-            f"{primary}到底跟你门店有什么关系？胡哥讲10句",
-            f"顾客为什么在意{primary}？餐饮老板先想10个问题",
-            f"{primary}变热，老板到底该不该跟？先看这10点",
-            f"{primary}会影响生意吗？餐饮老板先查这10件事",
-            f"为什么同样蹭{primary}，有的店赚钱有的店亏？",
-            f"{primary}来了，餐饮老板今天该怎么判断？",
-            f"{primary}热度过后，门店还能留下什么？",
-            f"老板要不要追{primary}？先把这10个问题问清楚",
-            f"{primary}被讨论，餐饮店到底该改哪里？",
+            f"【本周】#{primary}#餐饮老板别乱学，先搭这套赚钱方法",
+            f"【今日】#{primary}#不是玄学，门店赚钱要按这套顺序来",
+            f"【本周】#{secondary}#餐饮老板想稳住利润，先用这套方法论",
+            f"【今日】#{primary}#胡哥讲透：小店也能执行的10个动作",
+            f"【本周】#{tertiary}#别再凭感觉开店，这套复盘方法更管用",
+            f"【今日】#{primary}#餐饮老板照着改，少走一半弯路",
+            f"【本周】#{secondary}#门店经营别蛮干，先抓这10个关键点",
+            f"【今日】#{primary}#老板最该补上的不是流量，是经营系统",
+            f"【本周】#{tertiary}#餐饮赚钱的底层逻辑，胡哥拆成10句话",
+            f"【今日】#{primary}#别急着跟风，先把方法用对",
         ]
     return [
-        f"昨天餐饮圈都在聊{primary}，老板要听这10句劝",
-        f"{primary}又成热点，餐饮老板先别急着跟风",
-        f"从{primary}看餐饮赚钱，老板要抓住这10点",
-        f"餐饮老板注意：{primary}背后藏着10个经营信号",
-        f"{primary}热起来以后，门店今天先改这3件事",
-        f"别只看{primary}热闹，餐饮老板要看懂生意变化",
-        f"{primary}也在变，老板别错过这10个经营提醒",
-        f"昨天热点指向{primary}，今天门店要先做复盘",
-        f"从{primary}到{secondary}，餐饮老板要少踩这些坑",
-        f"餐饮老板别急，{primary}这波热度要这样用",
+        f"【今日】#{primary}#餐饮老板先别跟风，里面藏着赚钱信号",
+        f"【今日】#{primary}#又冲上热度，门店今天要改哪3件事？",
+        f"【本周】#{primary}#餐饮圈都在聊，真正该看的是这10点",
+        f"【今日】#{secondary}#别只看热闹，老板要看懂顾客为什么买",
+        f"【本周】#{primary}#这波热点背后，餐饮店最怕踩这几个坑",
+        f"【今日】#{tertiary}#胡哥提醒：热点来了，先算清这笔账",
+        f"【本周】#{primary}#为什么有的店跟风赚钱，有的店越跟越亏？",
+        f"【今日】#{secondary}#餐饮老板要醒醒，机会不在表面",
+        f"【本周】#{primary}#门店能不能接住热点，就看这10个动作",
+        f"【今日】#{primary}#别让流量白来，老板先做这份复盘",
     ]
+
+
+def _article_title(*, topic: Topic, issue_number: int, article_type: str) -> str:
+    if article_type == "ten_lessons":
+        return f"餐饮要赚钱 听我10句劝｜第{issue_number}期"
+    return topic.title
 
 
 def _trend_advices(*, primary: str, secondary: str, keywords: list[str], article_angle: str = "") -> list[Advice]:

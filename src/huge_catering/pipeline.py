@@ -36,13 +36,14 @@ def build_daily_article(
     seed: int | None = None,
     trend_snapshot: TrendSnapshot | None = None,
     trend_keyword: str | None = None,
+    issue_number_override: int | None = None,
 ) -> PipelineResult:
     run_dir = settings.output_dir / publish_date.strftime("%Y-%m-%d")
     tool_settings = load_tool_settings(tool_settings_path(settings.output_dir))
     history_file = history_path(settings.output_dir)
     history = read_history(history_file)
     used_trend_snapshot = trend_snapshot
-    issue_number = issue_number_for_date(
+    issue_number = issue_number_override or issue_number_for_date(
         history,
         publish_date,
         start_issue_number=settings.start_issue_number,
@@ -56,10 +57,10 @@ def build_daily_article(
                 used_trend_snapshot = snapshot
             topic = topic_from_trends(
                 snapshot,
-                title_style=tool_settings.title_style,
+                article_type=tool_settings.article_type,
                 article_angle=tool_settings.article_angle,
                 keyword_override=tool_settings.keyword_list or None,
-                title_variant=issue_number,
+                title_variant=issue_number + (seed or 0),
             )
         except Exception:
             raw_topics = ensure_fresh_topic_batch(
@@ -89,6 +90,7 @@ def build_daily_article(
         publish_date=publish_date,
         topic=topic,
         issue_number=issue_number,
+        article_type=tool_settings.article_type,
     )
 
     cover_path = create_cover(article, settings.brand_name, run_dir / "cover.jpg")
@@ -161,8 +163,9 @@ def build_daily_article(
                 "image_prompt_workbench": build_workbench_from_article(article, brand_name=settings.brand_name),
                 "tags": article.tags,
                 "tool_settings": {
+                    "article_type": tool_settings.article_type,
+                    "next_issue_number": tool_settings.next_issue_number,
                     "article_angle": tool_settings.article_angle,
-                    "title_style": tool_settings.title_style,
                     "image_provider": tool_settings.image_provider,
                     "openai_image_model": tool_settings.openai_image_model,
                     "openai_image_size": tool_settings.openai_image_size,

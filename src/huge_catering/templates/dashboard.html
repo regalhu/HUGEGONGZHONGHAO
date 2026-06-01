@@ -193,6 +193,13 @@
     }
     .card .actions { margin-top: auto; padding-top: 12px; }
     .empty { grid-column: 1 / -1; }
+    .copy-source {
+      position: absolute;
+      left: -9999px;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+    }
     @media (max-width: 760px) {
       .nav { align-items: flex-start; flex-direction: column; padding: 16px 18px; }
       main { padding: 18px; }
@@ -228,19 +235,21 @@
         <div class="panel-head">
           <div>
             <h2>生成设置</h2>
-            <div class="subtle">调整文章角度、标题格式和关键词策略。</div>
+            <div class="subtle">按文章类型自动匹配标题规则、期号和内容机制。</div>
           </div>
-          <div class="subtle">标题风格：{{ tool_settings.title_style }}</div>
+          <div class="subtle">文章类型：{{ {"ten_lessons":"餐饮10句劝","hot_interpretation":"餐饮热点解读","methodology":"餐饮方法论"}.get(tool_settings.article_type, "餐饮10句劝") }}</div>
         </div>
         <form method="post" action="{{ url_for('save_settings') }}">
           <div class="settings-grid">
-            <label>标题风格
-              <select name="title_style">
-                <option value="hot_warning" {% if tool_settings.title_style == "hot_warning" %}selected{% endif %}>热点提醒型</option>
-                <option value="ten_lessons" {% if tool_settings.title_style == "ten_lessons" %}selected{% endif %}>10句劝型</option>
-                <option value="data_signal" {% if tool_settings.title_style == "data_signal" %}selected{% endif %}>经营信号型</option>
-                <option value="question_hook" {% if tool_settings.title_style == "question_hook" %}selected{% endif %}>问题钩子型</option>
+            <label>文章类型
+              <select name="article_type" id="article-type-select">
+                <option value="ten_lessons" {% if tool_settings.article_type == "ten_lessons" %}selected{% endif %}>餐饮10句劝</option>
+                <option value="hot_interpretation" {% if tool_settings.article_type == "hot_interpretation" %}selected{% endif %}>餐饮热点解读</option>
+                <option value="methodology" {% if tool_settings.article_type == "methodology" %}selected{% endif %}>餐饮方法论</option>
               </select>
+            </label>
+            <label id="issue-field">期号/标题
+              <input name="next_issue_number" value="{{ tool_settings.next_issue_number }}" placeholder="留空自动递增；例如 229">
             </label>
             <label>关键词覆盖
               <input name="keyword_override" value="{{ tool_settings.keyword_override }}" placeholder="例如：外卖,复购,食品安全">
@@ -259,17 +268,18 @@
         <div class="panel-head">
           <div>
             <h2>生成草稿</h2>
-            <div class="subtle">按起始日期生成最多 10 篇预览稿。</div>
+            <div class="subtle">默认生成 5 篇，最多 10 篇；可随时一键重新生成。</div>
           </div>
         </div>
         <form class="toolbar" method="post" action="{{ url_for('generate_batch') }}">
-          <label>起始日期
+          <label id="date-field">起始日期
             <input type="date" name="start_date" value="{{ today }}">
           </label>
           <label>生成篇数
             <input type="number" name="count" min="1" max="10" value="{{ batch_size }}">
           </label>
-          <button type="submit">生成10篇预览</button>
+          <button type="submit">一键生成</button>
+          <button class="secondary" type="submit" name="regenerate" value="1">一键重新生成</button>
         </form>
       </section>
     {% endif %}
@@ -333,6 +343,10 @@
               <div class="meta">media_id：{{ item.draft_media_id }}</div>
             {% endif %}
             <div class="actions">
+              <button class="secondary copy-draft" type="button" data-target="md-{{ loop.index }}">复制 Markdown</button>
+              <button class="secondary copy-draft" type="button" data-target="html-{{ loop.index }}">复制 HTML</button>
+              <textarea id="md-{{ loop.index }}" class="copy-source" readonly>{{ item.copy_markdown }}</textarea>
+              <textarea id="html-{{ loop.index }}" class="copy-source" readonly>{{ item.copy_html }}</textarea>
               <a class="button secondary" href="{{ url_for('preview', publish_date=item.publish_date, archived=1 if archive_view else 0) }}">预览</a>
               {% if archive_view %}
                 <form method="post" action="{{ url_for('drafts_action') }}">
@@ -361,5 +375,43 @@
       </section>
     </section>
   </main>
+  <script>
+    const articleTypeSelect = document.getElementById("article-type-select");
+    const dateField = document.getElementById("date-field");
+    const issueField = document.getElementById("issue-field");
+    function syncArticleTypeFields() {
+      if (!articleTypeSelect) return;
+      const isTenLessons = articleTypeSelect.value === "ten_lessons";
+      if (dateField) dateField.style.display = isTenLessons ? "none" : "grid";
+      if (issueField) {
+        issueField.style.display = isTenLessons ? "grid" : "none";
+        const input = issueField.querySelector("input");
+        if (input) {
+          input.placeholder = isTenLessons ? "留空自动递增；例如 229" : "热点解读/方法论会自动生成标题";
+        }
+      }
+    }
+    if (articleTypeSelect) {
+      articleTypeSelect.addEventListener("change", syncArticleTypeFields);
+      syncArticleTypeFields();
+    }
+
+    document.querySelectorAll(".copy-draft").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const target = document.getElementById(button.dataset.target);
+        if (!target) return;
+        const original = button.textContent;
+        target.select();
+        target.setSelectionRange(0, target.value.length);
+        try {
+          await navigator.clipboard.writeText(target.value);
+        } catch (error) {
+          document.execCommand("copy");
+        }
+        button.textContent = "已复制";
+        window.setTimeout(() => { button.textContent = original; }, 1300);
+      });
+    });
+  </script>
 </body>
 </html>

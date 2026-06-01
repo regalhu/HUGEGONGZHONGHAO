@@ -29,6 +29,7 @@
     .slot-card { border: 1px solid #e4ded4; border-radius: 8px; padding: 14px; background: #fffdf9; }
     .slot-card input, .slot-card select { width: 100%; box-sizing: border-box; margin: 8px 0; }
     .slot-card img { margin: 8px 0; }
+    .copy-source { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
   </style>
 </head>
 <body>
@@ -45,6 +46,8 @@
       草稿：{{ metadata.draft_media_id or "未上传" }}
     </div>
     <div class="actions">
+      <button type="button" class="copy-draft secondary" data-target="copy-markdown">复制 Markdown</button>
+      <button type="button" class="copy-draft secondary" data-target="copy-html">复制 HTML</button>
       {% if not archived %}
         <form method="post" action="{{ url_for('upload_one', publish_date=publish_date) }}">
           <button type="submit">上传到公众号草稿箱</button>
@@ -60,6 +63,8 @@
         <button type="submit" name="action" value="{{ 'delete_archive_selected' if archived else 'delete_selected' }}">删除</button>
       </form>
     </div>
+    <textarea id="copy-markdown" class="copy-source" readonly>{{ copy_markdown }}</textarea>
+    <textarea id="copy-html" class="copy-source" readonly>{{ copy_html }}</textarea>
     <section class="panel">
       <h2>封面图</h2>
       <img src="{{ url_for('outputs', filename=('_archive/' if archived else '') ~ publish_date ~ '/cover.jpg') }}" alt="封面图">
@@ -125,6 +130,22 @@
           button.textContent = "已复制";
           window.setTimeout(() => { button.textContent = "复制提示词"; }, 1400);
         }
+      });
+    });
+    document.querySelectorAll(".copy-draft").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const target = document.getElementById(button.dataset.target);
+        if (!target) return;
+        const original = button.textContent;
+        target.select();
+        target.setSelectionRange(0, target.value.length);
+        try {
+          await navigator.clipboard.writeText(target.value);
+        } catch (error) {
+          document.execCommand("copy");
+        }
+        button.textContent = "已复制";
+        window.setTimeout(() => { button.textContent = original; }, 1300);
       });
     });
   </script>
