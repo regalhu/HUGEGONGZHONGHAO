@@ -109,7 +109,7 @@
           <label style="margin-top:14px;">图片风格
             <textarea name="image_style_prompt">{{ tool_settings.image_style_prompt }}</textarea>
           </label>
-          <p class="meta">图片工作台采用低成本人工协作模式：主页面生成提示词，图片复制到 ChatGPT Plus 生成后，再加载到草稿图片位置。</p>
+          <p class="meta">图片工具采用低成本人工协作模式：主页面生成封面图提示词，图片复制到 ChatGPT Plus 生成后，再替换每篇草稿的封面图。公众号正文不再插入图片。</p>
           <button type="submit">保存设置</button>
         </form>
       </section>
@@ -195,37 +195,20 @@
           </div>
           <details>
             <summary>图片工具</summary>
-            <p class="meta">当前版本为低成本人工协作模式：复制提示词到 ChatGPT Plus 生成图片，然后上传到对应图片位置。</p>
+            <p class="meta">每篇公众号文章固定 1 张封面图。复制提示词到 ChatGPT Plus 生成封面后，在这里替换封面图即可。</p>
             <div class="actions">
               <a class="button" href="{{ item.image_workbench.chatgptUrl if item.image_workbench else 'https://chatgpt.com/' }}" target="_blank" rel="noopener">打开 ChatGPT 图片生成</a>
             </div>
-            <div class="image-slots">
-              {% for slot in image_slots %}
-                <div class="slot-box">
-                  <div class="title" style="font-size:14px;">{{ slot.label }}</div>
-                  <div class="meta">{{ slot.description }}</div>
-                  {% if item.manual_images and item.manual_images.get(slot.id) %}
-                    <img src="{{ url_for('outputs', filename=('_archive/' if archive_view else '') ~ item.publish_date ~ '/' ~ item.manual_images.get(slot.id)) }}" alt="{{ slot.label }}">
-                    {% if not archive_view %}
-                      <form method="post" action="{{ url_for('remove_preview_image', publish_date=item.publish_date) }}">
-                        <input type="hidden" name="return_to" value="index">
-                        <input type="hidden" name="slot_id" value="{{ slot.id }}">
-                        <button type="submit">移除</button>
-                      </form>
-                    {% endif %}
-                  {% else %}
-                    <div class="meta">当前为空白图片区</div>
-                  {% endif %}
-                  {% if not archive_view %}
-                    <form method="post" action="{{ url_for('upload_preview_image', publish_date=item.publish_date) }}" enctype="multipart/form-data">
-                      <input type="hidden" name="return_to" value="index">
-                      <input type="hidden" name="slot_id" value="{{ slot.id }}">
-                      <input type="file" name="image" accept="image/*" required>
-                      <button class="secondary" type="submit">{{ "替换图片" if item.manual_images and item.manual_images.get(slot.id) else "加载图片" }}</button>
-                    </form>
-                  {% endif %}
-                </div>
-              {% endfor %}
+            <div class="slot-box">
+              <div class="title" style="font-size:14px;">公众号封面图 · 2.35:1</div>
+              <img src="{{ url_for('outputs', filename=('_archive/' if archive_view else '') ~ item.publish_date ~ '/cover.jpg') }}" alt="封面图">
+              {% if not archive_view %}
+                <form method="post" action="{{ url_for('upload_cover_image', publish_date=item.publish_date) }}" enctype="multipart/form-data">
+                  <input type="hidden" name="return_to" value="index">
+                  <input type="file" name="image" accept="image/*" required>
+                  <button class="secondary" type="submit">替换封面图</button>
+                </form>
+              {% endif %}
             </div>
             {% if item.image_workbench %}
               <details>

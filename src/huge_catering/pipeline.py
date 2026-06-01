@@ -10,7 +10,7 @@ from .content import choose_topic, generate_article, topic_from_trends, topics_f
 from .history import history_path, issue_number_for_date, read_history, record_history
 from .image_checks import ensure_article_images, validate_article_images
 from .image_prompt_workbench import build_workbench_from_article
-from .images import create_cover, create_inline_card
+from .images import create_cover
 from .render import render_article_html
 from .topic_factory import ensure_fresh_topic_batch
 from .tool_settings import load_tool_settings, tool_settings_path
@@ -23,7 +23,7 @@ class PipelineResult:
     output_dir: Path
     article_html: Path
     cover_image: Path
-    inline_image: Path
+    inline_image: Path | None
     metadata_json: Path
     draft_media_id: str | None = None
 
@@ -92,7 +92,6 @@ def build_daily_article(
     )
 
     cover_path = create_cover(article, settings.brand_name, run_dir / "cover.jpg")
-    inline_path = create_inline_card(article, run_dir / "inline-card.jpg", tool_settings=tool_settings)
     html_path = run_dir / "article.html"
     html = render_article_html(
         article,
@@ -149,7 +148,6 @@ def build_daily_article(
                 "trend_focus_keyword": trend_keyword,
                 "trend_sources": (used_trend_snapshot.source_titles if used_trend_snapshot else [])[:10],
                 "cover_image": str(cover_path),
-                "inline_image": str(inline_path),
                 "article_html": str(html_path),
                 "draft_media_id": draft_media_id,
                 "manual_images": {},
@@ -191,7 +189,7 @@ def build_daily_article(
         output_dir=run_dir,
         article_html=html_path,
         cover_image=cover_path,
-        inline_image=inline_path,
+        inline_image=None,
         metadata_json=metadata_path,
         draft_media_id=draft_media_id,
     )

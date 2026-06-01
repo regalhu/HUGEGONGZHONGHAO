@@ -70,34 +70,6 @@ def _build_workbench(context: dict[str, str]) -> dict[str, Any]:
             english_scene="A wide WeChat article cover showing a restaurant owner reviewing business data, with a storefront, menu, delivery orders, and a clear business theme",
             context=context,
         ),
-        _group(
-            purpose="公众号文中配图 1",
-            aspect_ratio="16:9",
-            scene="文章中段解释图，胡哥形象在门店里复盘热点，旁边有成本、客流、复购和风险控制的视觉元素",
-            english_scene="A 16:9 editorial illustration where Huge reviews the trend inside a restaurant, with visual elements for cost, traffic, repeat purchase, and risk control",
-            context=context,
-        ),
-        _group(
-            purpose="公众号文中配图 2",
-            aspect_ratio="16:9",
-            scene="行动清单式插画，餐饮团队围绕菜单、后厨标准、前厅话术和数据看板做当天改善",
-            english_scene="A 16:9 action checklist illustration: a restaurant team improves menu design, kitchen standards, service scripts, and a data dashboard",
-            context=context,
-        ),
-        _group(
-            purpose="小红书封面图",
-            aspect_ratio="3:4",
-            scene="竖版小红书封面，强视觉标题感，餐饮老板视角，突出热点关键词和门店赚钱动作",
-            english_scene="A vertical Xiaohongshu cover with strong editorial composition from a restaurant owner perspective, highlighting the trend keyword and money-making store actions",
-            context=context,
-        ),
-        _group(
-            purpose="视频号/抖音封面图",
-            aspect_ratio="9:16",
-            scene="短视频竖版封面，胡哥站在餐饮门店前，画面有热点冲击感和经营复盘氛围",
-            english_scene="A vertical short-video cover with Huge standing in front of a restaurant, showing a strong trend impact and business review mood",
-            context=context,
-        ),
     ]
     return {
         "imageProvider": IMAGE_PROVIDER,

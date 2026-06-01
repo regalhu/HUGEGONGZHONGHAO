@@ -80,11 +80,18 @@ def save_manual_image(run_dir: Path, slot_id: str, source_path: Path) -> str:
     return f"manual-images/{slot_id}.jpg"
 
 
+def save_cover_image(run_dir: Path, source_path: Path) -> Path:
+    target = run_dir / "cover.jpg"
+    image = Image.open(source_path).convert("RGB")
+    image.save(target, format="JPEG", quality=94)
+    return target
+
+
 def render_metadata_article(metadata: dict[str, Any], *, brand_name: str, run_dir: Path) -> str:
     article = article_from_metadata(metadata)
     return render_article_html(
         article,
         brand_name=brand_name,
-        inline_images=manual_images_from_metadata(metadata),
+        inline_images={},
         output_path=run_dir / "article.html",
     )

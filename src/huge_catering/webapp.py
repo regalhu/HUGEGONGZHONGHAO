@@ -13,7 +13,7 @@ from typing import Any
 from flask import Flask, Response, abort, redirect, render_template, request, send_from_directory, url_for
 
 from .config import Settings, load_settings
-from .draft_images import article_from_metadata, manual_images_from_metadata, render_metadata_article, save_manual_image, slot_options, valid_slot_ids
+from .draft_images import article_from_metadata, manual_images_from_metadata, render_metadata_article, save_cover_image, save_manual_image, slot_options, valid_slot_ids
 from .image_checks import ensure_article_images
 from .pipeline import build_daily_article
 from .image_prompt_workbench import build_workbench_from_metadata
@@ -168,6 +168,35 @@ def create_app() -> Flask:
                 build_daily_article(settings, publish_date=parsed, upload_draft=True)
         return redirect(url_for("preview", publish_date=publish_date))
 
+    @app.post("/preview/<publish_date>/cover")
+    def upload_cover_image(publish_date: str) -> Response:
+        parsed = _parse_date(publish_date)
+        if parsed is None:
+            abort(404)
+        image = request.files.get("image")
+        if image is None or not image.filename:
+            if request.form.get("return_to") == "index":
+                return redirect(url_for("index"))
+            return redirect(url_for("preview", publish_date=publish_date))
+        metadata = _read_metadata(settings, parsed)
+        if not metadata:
+            abort(404)
+        run_dir = _draft_dir(settings, parsed)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(image.filename).suffix or ".jpg") as tmp:
+            tmp_path = Path(tmp.name)
+        image.save(tmp_path)
+        try:
+            cover_path = save_cover_image(run_dir, tmp_path)
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
+        metadata["cover_image"] = str(cover_path)
+        metadata["draft_media_id"] = None
+        _write_metadata(settings, parsed, metadata)
+        if request.form.get("return_to") == "index":
+            return redirect(url_for("index"))
+        return redirect(url_for("preview", publish_date=publish_date))
+
     @app.post("/preview/<publish_date>/images")
     def upload_preview_image(publish_date: str) -> Response:
         parsed = _parse_date(publish_date)
@@ -279,9 +308,7 @@ def create_app() -> Flask:
         metadata = _read_metadata(settings, parsed, archived=archived)
         if not metadata:
             abort(404)
-        workbench = metadata.get("image_prompt_workbench")
-        if not isinstance(workbench, dict):
-            workbench = build_workbench_from_metadata(metadata, brand_name=settings.brand_name)
+        workbench = _workbench_from_metadata(metadata, settings)
         return render_template(
             "preview.html",
             metadata=metadata,
@@ -409,7 +436,7 @@ def _preview_item(settings: Settings, publish_date: str, *, archived: bool = Fal
 
 def _workbench_from_metadata(metadata: dict[str, Any], settings: Settings) -> dict[str, Any]:
     workbench = metadata.get("image_prompt_workbench")
-    if isinstance(workbench, dict):
+    if isinstance(workbench, dict) and len(workbench.get("groups", [])) == 1:
         return workbench
     return build_workbench_from_metadata(metadata, brand_name=settings.brand_name)
 
@@ -466,15 +493,10 @@ def _upload_existing_draft(settings: Settings, publish_date: date) -> None:
         app_secret=settings.wechat_app_secret or "",
         token_cache_path=Path("token_cache.json"),
     )
-    remote_images: dict[str, str] = {}
-    for slot_id, relative_path in manual_images_from_metadata(metadata).items():
-        image_path = run_dir / relative_path
-        if image_path.exists():
-            remote_images[slot_id] = client.upload_content_image(image_path)
     html = render_article_html(
         article,
         brand_name=settings.brand_name,
-        inline_images=remote_images,
+        inline_images={},
         output_path=run_dir / "article.html",
     )
     image_check = ensure_article_images(html, html_path=run_dir / "article.html")

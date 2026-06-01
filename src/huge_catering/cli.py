@@ -48,7 +48,6 @@ def main(argv: list[str] | None = None) -> int:
     print(f"输出目录: {result.output_dir}")
     print(f"文章 HTML: {result.article_html}")
     print(f"封面图: {result.cover_image}")
-    print(f"文中图: {result.inline_image}")
     print(f"元数据: {result.metadata_json}")
     if result.draft_media_id:
         print(f"公众号草稿 media_id: {result.draft_media_id}")
