@@ -76,6 +76,14 @@ $env:PYTHONPATH="src"
 http://127.0.0.1:8765
 ```
 
+如果希望登录 Windows 后自动启动网页后台，可以运行：
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File "C:\Users\regal\Documents\胡哥说餐饮\scripts\start_web.ps1"
+```
+
+本机已在 Windows 启动文件夹配置 `胡哥说餐饮启动.cmd`，登录电脑后会自动拉起 `http://127.0.0.1:8766`。
+
 页面支持：
 
 - 点击按钮生成 10 篇文章预览。
