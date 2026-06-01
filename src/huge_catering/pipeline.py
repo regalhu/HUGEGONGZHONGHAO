@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 import json
 from pathlib import Path
 
@@ -48,12 +48,19 @@ def build_daily_article(
         publish_date,
         start_issue_number=settings.start_issue_number,
     )
+    selected_trend_keyword: str | None = None
     if settings.enable_trend_content:
         try:
             snapshot = trend_snapshot or load_or_fetch_trends(output_dir=settings.output_dir, publish_date=publish_date)
             used_trend_snapshot = snapshot
-            if trend_keyword:
-                snapshot = snapshot_for_keyword(snapshot, trend_keyword)
+            selected_trend_keyword = _non_consecutive_trend_keyword(
+                settings=settings,
+                publish_date=publish_date,
+                snapshot=snapshot,
+                requested_keyword=trend_keyword,
+            )
+            if selected_trend_keyword:
+                snapshot = snapshot_for_keyword(snapshot, selected_trend_keyword)
                 used_trend_snapshot = snapshot
             topic = topic_from_trends(
                 snapshot,
@@ -145,7 +152,7 @@ def build_daily_article(
                 "trend_keywords": article.trend_keywords,
                 "trend_summary": article.trend_summary,
                 "trend_keyword_counts": (used_trend_snapshot.keyword_counts if used_trend_snapshot else None) or {},
-                "trend_focus_keyword": trend_keyword,
+                "trend_focus_keyword": selected_trend_keyword,
                 "trend_sources": article.trend_sources or (used_trend_snapshot.source_titles if used_trend_snapshot else [])[:10],
                 "cover_image": str(cover_path),
                 "article_html": str(html_path),
@@ -193,3 +200,44 @@ def build_daily_article(
         metadata_json=metadata_path,
         draft_media_id=draft_media_id,
     )
+
+
+def _non_consecutive_trend_keyword(
+    *,
+    settings: Settings,
+    publish_date: date,
+    snapshot: TrendSnapshot,
+    requested_keyword: str | None,
+) -> str | None:
+    previous_keyword = _previous_trend_keyword(settings, publish_date)
+    candidates: list[str] = []
+    if requested_keyword:
+        candidates.append(requested_keyword)
+    candidates.extend(snapshot.keywords)
+
+    seen: set[str] = set()
+    unique_candidates = []
+    for keyword in candidates:
+        clean = str(keyword).strip()
+        if clean and clean not in seen:
+            seen.add(clean)
+            unique_candidates.append(clean)
+
+    if not unique_candidates:
+        return None
+    for keyword in unique_candidates:
+        if keyword != previous_keyword:
+            return keyword
+    return unique_candidates[0]
+
+
+def _previous_trend_keyword(settings: Settings, publish_date: date) -> str | None:
+    metadata_path = settings.output_dir / (publish_date - timedelta(days=1)).isoformat() / "metadata.json"
+    if not metadata_path.exists():
+        return None
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    keyword = metadata.get("trend_focus_keyword")
+    return str(keyword).strip() if keyword else None
