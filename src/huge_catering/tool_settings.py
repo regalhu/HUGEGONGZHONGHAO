@@ -10,7 +10,7 @@ from pathlib import Path
 class ToolSettings:
     article_type: str = "ten_lessons"
     next_issue_number: str = ""
-    article_angle: str = "把热点拆成门店今天能执行的动作"
+    article_angle: str = "1000字以内；强实用性；措辞幽默；引用公开数据源；每条都要落到餐饮门店可执行动作。"
     keyword_override: str = ""
     image_provider: str = "local"
     openai_api_key: str = ""

@@ -191,6 +191,36 @@
       font-size: 12px;
       border: 1px solid var(--line);
     }
+    .keyword-panel {
+      margin-top: 14px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.72);
+    }
+    .keyword-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .keyword-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      font-size: 13px;
+    }
+    .logic-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
     .card .actions { margin-top: auto; padding-top: 12px; }
     .empty { grid-column: 1 / -1; }
     .copy-source {
@@ -251,13 +281,31 @@
             <label id="issue-field">期号/标题
               <input name="next_issue_number" value="{{ tool_settings.next_issue_number }}" placeholder="留空自动递增；例如 229">
             </label>
-            <label>关键词覆盖
-              <input name="keyword_override" value="{{ tool_settings.keyword_override }}" placeholder="例如：外卖,复购,食品安全">
-            </label>
           </div>
-          <label style="margin-top:14px;">文章生成机制/角度
-            <textarea name="article_angle">{{ tool_settings.article_angle }}</textarea>
-          </label>
+          <div class="keyword-panel">
+            <div class="subtle">关键词抓取结果：最近 5 天，来自网络公开平台及全网搜索引擎的餐饮类高频关键词。</div>
+            <div class="keyword-list">
+              {% for keyword in keyword_results %}
+                <div class="keyword-row">
+                  <strong>{{ loop.index }}. {{ keyword.keyword }}</strong>
+                  <span class="subtle">提及率 {{ keyword.mention_rate }}%</span>
+                </div>
+              {% endfor %}
+            </div>
+            {% if keyword_results %}
+              <div class="subtle" style="margin-top:10px;">数据源：{{ keyword_results[0].source_label }}{% if keyword_results[0].source_count %}，近5天抓取标题/摘要约 {{ keyword_results[0].source_count }} 条{% endif %}</div>
+            {% endif %}
+          </div>
+          <div class="keyword-panel">
+            <div class="subtle">核心生成逻辑</div>
+            <div class="logic-list">
+              <span class="chip">1000字以内</span>
+              <span class="chip">强实用性</span>
+              <span class="chip">措辞幽默</span>
+              <span class="chip">引用数据源</span>
+              <span class="chip">落到门店动作</span>
+            </div>
+          </div>
           <div class="actions" style="margin-top:16px;">
             <button type="submit">保存设置</button>
           </div>
@@ -370,7 +418,7 @@
             </div>
           </article>
         {% else %}
-          <div class="notice empty">{{ "归档里还没有草稿。" if archive_view else "还没有预览稿。点击上方按钮生成 10 篇。" }}</div>
+          <div class="notice empty">{{ "归档里还没有草稿。" if archive_view else "还没有预览稿。点击上方按钮生成预览。" }}</div>
         {% endfor %}
       </section>
     </section>

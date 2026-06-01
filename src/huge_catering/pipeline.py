@@ -58,8 +58,6 @@ def build_daily_article(
             topic = topic_from_trends(
                 snapshot,
                 article_type=tool_settings.article_type,
-                article_angle=tool_settings.article_angle,
-                keyword_override=tool_settings.keyword_list or None,
                 title_variant=issue_number + (seed or 0),
             )
         except Exception:
@@ -148,7 +146,7 @@ def build_daily_article(
                 "trend_summary": article.trend_summary,
                 "trend_keyword_counts": (used_trend_snapshot.keyword_counts if used_trend_snapshot else None) or {},
                 "trend_focus_keyword": trend_keyword,
-                "trend_sources": (used_trend_snapshot.source_titles if used_trend_snapshot else [])[:10],
+                "trend_sources": article.trend_sources or (used_trend_snapshot.source_titles if used_trend_snapshot else [])[:10],
                 "cover_image": str(cover_path),
                 "article_html": str(html_path),
                 "draft_media_id": draft_media_id,
@@ -165,7 +163,6 @@ def build_daily_article(
                 "tool_settings": {
                     "article_type": tool_settings.article_type,
                     "next_issue_number": tool_settings.next_issue_number,
-                    "article_angle": tool_settings.article_angle,
                     "image_provider": tool_settings.image_provider,
                     "openai_image_model": tool_settings.openai_image_model,
                     "openai_image_size": tool_settings.openai_image_size,

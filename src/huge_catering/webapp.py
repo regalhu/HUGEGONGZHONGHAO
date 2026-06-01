@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 import json
@@ -20,12 +21,14 @@ from .pipeline import build_daily_article
 from .image_prompt_workbench import build_workbench_from_metadata
 from .render import render_article_html
 from .tool_settings import ToolSettings, load_tool_settings, save_tool_settings, tool_settings_path
-from .trends import load_or_fetch_trends
+from .trends import TrendSnapshot, load_or_fetch_trends, trend_cache_path
 from .wechat import WeChatClient
 
 
 BATCH_SIZE = 5
 MAX_BATCH_SIZE = 10
+CORE_GENERATION_LOGIC = "1000字以内；强实用性；措辞幽默；引用公开数据源；每条都要落到餐饮门店可执行动作。"
+KEYWORD_SOURCE_LABEL = "Bing新闻、Bing网页、百度、搜狗微信、头条、抖音公开热榜等公开信息源"
 
 
 @dataclass(frozen=True)
@@ -63,6 +66,7 @@ def create_app() -> Flask:
             has_wechat=settings.has_wechat_credentials,
             batch_size=BATCH_SIZE,
             tool_settings=tool_settings,
+            keyword_results=_recent_keyword_results(settings),
             archive_view=False,
             settings_saved=request.args.get("settings_saved") == "1",
             image_slots=slot_options(),
@@ -80,6 +84,7 @@ def create_app() -> Flask:
             has_wechat=settings.has_wechat_credentials,
             batch_size=BATCH_SIZE,
             tool_settings=tool_settings,
+            keyword_results=[],
             archive_view=True,
             settings_saved=False,
             image_slots=slot_options(),
@@ -96,8 +101,8 @@ def create_app() -> Flask:
         next_settings = ToolSettings(
             article_type=_clean_article_type(request.form.get("article_type")),
             next_issue_number=str(request.form.get("next_issue_number") or "").strip(),
-            article_angle=str(request.form.get("article_angle") or "").strip(),
-            keyword_override=str(request.form.get("keyword_override") or "").strip(),
+            article_angle=CORE_GENERATION_LOGIC,
+            keyword_override="",
             image_provider=existing.image_provider,
             openai_api_key=existing.openai_api_key,
             openai_image_model=existing.openai_image_model,
@@ -120,7 +125,7 @@ def create_app() -> Flask:
         trend_keywords: list[str] = []
         if settings.enable_trend_content and not tool_settings.keyword_list:
             try:
-                trend_snapshot = load_or_fetch_trends(output_dir=settings.output_dir, publish_date=start_date)
+                trend_snapshot = _recent_trend_snapshot(settings, start_date=start_date)
                 trend_keywords = trend_snapshot.keywords[:count]
             except Exception:
                 trend_snapshot = None
@@ -570,8 +575,8 @@ def _save_next_issue_from_batch(settings: Settings, tool_settings: ToolSettings,
         ToolSettings(
             article_type=tool_settings.article_type,
             next_issue_number=str(max(issue_numbers) + 1),
-            article_angle=tool_settings.article_angle,
-            keyword_override=tool_settings.keyword_override,
+            article_angle=CORE_GENERATION_LOGIC,
+            keyword_override="",
             image_provider=tool_settings.image_provider,
             openai_api_key=tool_settings.openai_api_key,
             openai_image_model=tool_settings.openai_image_model,
@@ -603,6 +608,9 @@ def _draft_markdown(metadata: dict[str, Any]) -> str:
             ]
         )
     lines.extend(["总结：", str(metadata.get("conclusion", ""))])
+    sources = [str(item) for item in metadata.get("trend_sources", []) if item]
+    if sources:
+        lines.extend(["", "公开数据源参考：", *[f"- {item}" for item in sources[:3]]])
     return "\n".join(lines).strip()
 
 
@@ -610,6 +618,110 @@ def _draft_copy_html(settings: Settings, publish_date: date, metadata: dict[str,
     html_path = _draft_dir(settings, publish_date, archived=archived) / "article.html"
     body = html_path.read_text(encoding="utf-8") if html_path.exists() else ""
     return f"<h1>{metadata.get('title', '')}</h1>\n{body}".strip()
+
+
+def _recent_keyword_results(settings: Settings) -> list[dict[str, object]]:
+    keywords: list[str] = []
+    try:
+        snapshot = _recent_trend_snapshot(settings, start_date=date.today(), fetch_missing=False)
+        counter = Counter(snapshot.keyword_counts or {})
+        source_count = len(snapshot.source_titles)
+        keywords = snapshot.keywords
+    except Exception:
+        counter = Counter()
+        source_count = 0
+    if not counter:
+        counter.update({keyword: 1 for keyword in keywords})
+
+    if not counter:
+        counter.update({
+            "外卖": 8,
+            "复购": 7,
+            "食品安全": 6,
+            "门店成本": 5,
+            "茶饮": 4,
+        })
+
+    total = sum(counter.values()) or 1
+    return [
+        {
+            "keyword": keyword,
+            "count": count,
+            "mention_rate": round(count / total * 100, 1),
+            "source_label": KEYWORD_SOURCE_LABEL,
+            "source_count": source_count,
+        }
+        for keyword, count in counter.most_common(10)
+    ]
+
+
+def _recent_trend_snapshot(settings: Settings, *, start_date: date, fetch_missing: bool = True) -> TrendSnapshot:
+    counter: Counter[str] = Counter()
+    source_titles: list[str] = []
+    summaries: list[str] = []
+    cache = _read_trend_cache(settings)
+    for offset in range(5):
+        publish_date = start_date - timedelta(days=offset)
+        try:
+            target_date = publish_date - timedelta(days=1)
+            cached = cache.get(target_date.isoformat())
+            if cached and isinstance(cached, dict):
+                snapshot = TrendSnapshot(
+                    target_date=target_date,
+                    keywords=[str(item) for item in cached.get("keywords", [])],
+                    summary=str(cached.get("summary", "")),
+                    source_titles=[str(item) for item in cached.get("source_titles", [])],
+                    keyword_counts={
+                        str(key): int(value)
+                        for key, value in (cached.get("keyword_counts", {}) or {}).items()
+                        if isinstance(value, int)
+                    },
+                )
+            elif fetch_missing:
+                snapshot = load_or_fetch_trends(output_dir=settings.output_dir, publish_date=publish_date)
+            else:
+                continue
+        except Exception:
+            continue
+        source_titles.extend(snapshot.source_titles)
+        if snapshot.summary:
+            summaries.append(snapshot.summary)
+        if snapshot.keyword_counts:
+            counter.update(snapshot.keyword_counts)
+        else:
+            counter.update(snapshot.keywords)
+
+    if not counter:
+        counter.update({
+            "外卖": 8,
+            "复购": 7,
+            "食品安全": 6,
+            "门店成本": 5,
+            "茶饮": 4,
+        })
+    keywords = [keyword for keyword, _ in counter.most_common(10)]
+    unique_sources = list(dict.fromkeys(source_titles))
+    summary = "近5天公开信息源餐饮关键词提及率靠前：" + "、".join(keywords[:5]) + "。"
+    if summaries:
+        summary += " " + summaries[0]
+    return TrendSnapshot(
+        target_date=start_date - timedelta(days=1),
+        keywords=keywords,
+        summary=summary,
+        source_titles=unique_sources[:30],
+        keyword_counts=dict(counter.most_common(20)),
+    )
+
+
+def _read_trend_cache(settings: Settings) -> dict[str, Any]:
+    path = trend_cache_path(settings.output_dir)
+    if not path.exists():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return raw if isinstance(raw, dict) else {}
 
 
 if __name__ == "__main__":

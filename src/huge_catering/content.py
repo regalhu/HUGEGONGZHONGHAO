@@ -22,6 +22,7 @@ class Topic:
     advices: list[Advice]
     trend_keywords: list[str] | None = None
     trend_summary: str = ""
+    trend_sources: list[str] | None = None
 
 
 def load_topics(path: Path) -> list[Topic]:
@@ -46,6 +47,9 @@ def load_topics(path: Path) -> list[Topic]:
                 if isinstance(item.get("trend_keywords"), list)
                 else None,
                 trend_summary=str(item.get("trend_summary", "")),
+                trend_sources=[str(source) for source in item.get("trend_sources", [])]
+                if isinstance(item.get("trend_sources"), list)
+                else None,
             )
         )
     if not topics:
@@ -129,6 +133,7 @@ def generate_article(
         conclusion=conclusion,
         trend_keywords=topic.trend_keywords or [],
         trend_summary=topic.trend_summary,
+        trend_sources=topic.trend_sources or [],
         tags=["餐饮经营", topic.name, "老板复盘"],
     )
 
@@ -137,7 +142,6 @@ def topic_from_trends(
     snapshot: TrendSnapshot,
     *,
     article_type: str = "hot_interpretation",
-    article_angle: str = "",
     keyword_override: list[str] | None = None,
     title_variant: int | None = None,
 ) -> Topic:
@@ -153,14 +157,12 @@ def topic_from_trends(
         snapshot,
         title_variant=title_variant,
     )
-    digest = f"胡哥根据昨天餐饮热点关键词{primary}、{secondary}，拆成今天老板能用的10句经营提醒。"
-    angle_sentence = f"这篇重点按「{article_angle}」来拆。" if article_angle else ""
+    digest = f"胡哥根据近5天餐饮高频关键词{primary}、{secondary}，拆成今天老板能用的10句经营提醒。"
     intro = (
-        f"老板，昨天餐饮相关内容里，{primary}这个词出现得很扎眼。"
-        f"热点不是拿来凑热闹的，是拿来反推门店经营的。{angle_sentence}"
-        f"今天这10句，咱们就从{primary}说到{secondary}，看看哪些动作今天就能改。"
+        f"老板，公开平台这几天反复提到{primary}、{secondary}。"
+        f"热闹咱不硬蹭，先把它翻译成门店今天能做的动作。"
     )
-    advices = _trend_advices(primary=primary, secondary=secondary, keywords=keywords, article_angle=article_angle)
+    advices = _trend_advices(primary=primary, secondary=secondary, keywords=keywords)
     return Topic(
         id=trend_topic_id(snapshot),
         name=f"热点：{primary}",
@@ -170,6 +172,7 @@ def topic_from_trends(
         advices=advices,
         trend_keywords=keywords,
         trend_summary=snapshot.summary,
+        trend_sources=snapshot.source_titles[:5],
     )
 
 
@@ -235,20 +238,19 @@ def _article_title(*, topic: Topic, issue_number: int, article_type: str) -> str
     return topic.title
 
 
-def _trend_advices(*, primary: str, secondary: str, keywords: list[str], article_angle: str = "") -> list[Advice]:
+def _trend_advices(*, primary: str, secondary: str, keywords: list[str]) -> list[Advice]:
     joined = "、".join(keywords[:5])
-    angle = article_angle or "门店今天能执行的动作"
     rows = [
-        ("热点先别急着跟风", f"{primary}能上热度，说明顾客和市场都在关注。但老板先别急着学表面，先看它和你店里的产品、客群、价格带有没有关系。"),
-        ("先问它影响哪笔钱", f"任何热点都要落到账上：会影响客流、客单、毛利，还是复购？今天先按{angle}来判断，说不清影响哪笔钱，就先不要乱投入。"),
-        ("顾客关心的是具体体验", f"{primary}背后通常不是一个概念，而是顾客对安全、价格、速度、服务的感受。门店要把感受做出来。"),
-        ("菜单要跟着需求微调", f"如果{secondary}也在被讨论，就说明顾客选择正在变。菜单不一定大改，但推荐位、套餐和文案要及时调。"),
-        ("前厅话术要会解释", f"热点来了，顾客可能会问。员工不能只说不知道，要能用一句简单话讲清楚店里怎么做、为什么放心。"),
-        ("后厨标准要经得起看", f"越是热点期，越要把克重、出品、卫生、包装做稳。热点会放大优点，也会放大小毛病。"),
-        ("别让优惠掩盖问题", f"如果产品和体验没跟上，靠打折蹭{primary}只会吸来一次性顾客。优惠能拉新，复购还得靠基本功。"),
-        ("每天看一个相关数据", f"围绕{joined}，老板至少盯一个数字：差评、复购、退款、出餐时间或毛利。数据会告诉你该改哪里。"),
-        ("把热点变成店内动作", f"今天别只转发热点，落一个动作：改一句话术、查一次卫生、调一个套餐、复盘一道菜。能执行才有价值。"),
-        ("热度会过去，能力要留下", f"{primary}这阵风迟早会过去，但你留下的标准、流程和顾客信任，会继续帮店赚钱。")
+        ("先别激动，先对账", f"{primary}火了，不等于你该冲。先看它影响客流、毛利还是复购，别把热闹当利润。"),
+        ("菜单只改一个点", f"围绕{secondary}，先调推荐位、套餐名或一句卖点。小改能测，大改容易把后厨改哭。"),
+        ("员工要会一句话解释", f"顾客问起热点，前厅别装网速慢。准备一句人话：我们怎么做、为什么放心。"),
+        ("后厨标准别掉链子", f"越有热度，越要稳克重、卫生、出餐。热点会放大优点，也会放大小毛病。"),
+        ("优惠别当止痛药", f"产品没站稳，打折只是给问题加扩音器。先把体验补上，再谈拉新。"),
+        ("每天盯一个数字", f"围绕{joined}，盯差评、退款、复购或出餐时长。数据不会哄老板开心，但会救老板钱包。"),
+        ("短视频别只喊口号", f"拍一个真实动作：备料、出餐、检查、顾客反馈。真实比空话更像生意。"),
+        ("老客先试，不急全店铺", f"新动作先给老客、小范围测。老客都不买账，别急着全网广播。"),
+        ("把热点写进SOP", f"能留下来的不是热搜，是流程。把今天有效的话术、菜单和检查项写下来。"),
+        ("热度过去，能力留下", f"{primary}会降温，但标准、复盘和信任会留在店里。餐饮赚钱，靠的就是这些慢功夫。")
     ]
     return [Advice(index=index, title=title, body=body) for index, (title, body) in enumerate(rows, start=1)]
 

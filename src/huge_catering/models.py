@@ -25,6 +25,7 @@ class Article:
     conclusion: str
     trend_keywords: list[str] = field(default_factory=list)
     trend_summary: str = ""
+    trend_sources: list[str] = field(default_factory=list)
     source_url: str = ""
     tags: list[str] = field(default_factory=list)
 
