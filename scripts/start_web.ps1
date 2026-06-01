@@ -15,6 +15,8 @@ function Write-WebLog {
   Write-Host $Line
 }
 
+Write-WebLog "start_web.ps1 invoked project=$ProjectRoot port=$Port"
+
 try {
   $Health = Invoke-WebRequest "http://127.0.0.1:$Port/health" -UseBasicParsing -TimeoutSec 3
   if ($Health.StatusCode -eq 200) {
@@ -25,11 +27,15 @@ try {
   Write-WebLog "Web dashboard not running, starting port=$Port"
 }
 
-if (Test-Path ".venv\Scripts\python.exe") {
+if (Test-Path ".venv\Scripts\pythonw.exe") {
+  $Python = Join-Path $ProjectRoot ".venv\Scripts\pythonw.exe"
+} elseif (Test-Path ".venv\Scripts\python.exe") {
   $Python = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 } else {
   $Python = "python"
 }
+
+Write-WebLog "Launching web dashboard with python=$Python"
 
 $env:PYTHONPATH = Join-Path $ProjectRoot "src"
 $OutputLog = Join-Path $LogDir "web.stdout.log"
@@ -43,13 +49,16 @@ Start-Process `
   -RedirectStandardOutput $OutputLog `
   -RedirectStandardError $ErrorLog
 
-Start-Sleep -Seconds 3
-
-try {
-  $Health = Invoke-WebRequest "http://127.0.0.1:$Port/health" -UseBasicParsing -TimeoutSec 5
-  Write-WebLog "Web dashboard started port=$Port status=$($Health.StatusCode)"
-  exit 0
-} catch {
-  Write-WebLog "Web dashboard failed to start port=$Port error=$($_.Exception.Message)"
-  exit 1
+for ($Attempt = 1; $Attempt -le 15; $Attempt++) {
+  Start-Sleep -Seconds 2
+  try {
+    $Health = Invoke-WebRequest "http://127.0.0.1:$Port/health" -UseBasicParsing -TimeoutSec 5
+    Write-WebLog "Web dashboard started port=$Port status=$($Health.StatusCode) attempt=$Attempt"
+    exit 0
+  } catch {
+    Write-WebLog "Waiting for web dashboard port=$Port attempt=$Attempt error=$($_.Exception.Message)"
+  }
 }
+
+Write-WebLog "Web dashboard failed to start port=$Port after=30s"
+exit 1

@@ -79,7 +79,7 @@ http://127.0.0.1:8765
 powershell.exe -ExecutionPolicy Bypass -File "C:\Users\regal\Documents\胡哥说餐饮\scripts\start_web.ps1"
 ```
 
-本机已在 Windows 启动文件夹配置 `胡哥说餐饮启动.cmd`，登录电脑后会自动拉起 `http://127.0.0.1:8766`。
+本机已在 Windows 启动文件夹配置 `huge-catering-web.vbs` 和 `huge-catering-web.cmd`，登录电脑后会隐藏启动网页后台并拉起 `http://127.0.0.1:8766`。
 
 主页面支持：
 
@@ -87,7 +87,7 @@ powershell.exe -ExecutionPolicy Bypass -File "C:\Users\regal\Documents\胡哥说
 - 预览标题、关键词、封面图和正文排版。
 - 点击按钮上传单篇到公众号草稿箱。
 - 点击按钮批量上传本批次到公众号草稿箱。
-- 在主页面直接调整文章角度、关键词覆盖、标题风格和配图方式。
+- 在主页面直接调整文章角度、关键词覆盖和标题风格。
 - 公众号正文不插入图片，图片只作为公众号封面使用。
 - 支持单篇归档/删除、全部归档/删除，以及勾选多篇后批量归档/删除。
 - 文章预览页提供封面工具，可生成公众号封面图提示词，也可以替换封面图。
