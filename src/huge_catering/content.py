@@ -115,11 +115,9 @@ def generate_article(
     issue_number: int,
     article_type: str = "ten_lessons",
 ) -> Article:
+    topic = _topic_for_article_type(topic, article_type=article_type, issue_number=issue_number)
     title = _article_title(topic=topic, issue_number=issue_number, article_type=article_type)
-    conclusion = (
-        f"我是{author_name}，每天陪餐饮老板把账算清、把店管顺。"
-        f"关注「{brand_name}」，咱们一天解决一个真问题。"
-    )
+    conclusion = _conclusion(author_name=author_name, brand_name=brand_name, article_type=article_type)
     return Article(
         title=title,
         digest=topic.digest,
@@ -131,6 +129,7 @@ def generate_article(
         intro=topic.intro,
         advices=topic.advices,
         conclusion=conclusion,
+        article_type=article_type,
         trend_keywords=topic.trend_keywords or [],
         trend_summary=topic.trend_summary,
         trend_sources=topic.trend_sources or [],
@@ -157,12 +156,9 @@ def topic_from_trends(
         snapshot,
         title_variant=title_variant,
     )
-    digest = f"胡哥根据近5天餐饮高频关键词{primary}、{secondary}，拆成今天老板能用的10句经营提醒。"
-    intro = (
-        f"老板，公开平台这几天反复提到{primary}、{secondary}。"
-        f"热闹咱不硬蹭，先把它翻译成门店今天能做的动作。"
-    )
-    advices = _trend_advices(primary=primary, secondary=secondary, keywords=keywords)
+    digest = _digest_for_type(article_type, primary, secondary)
+    intro = _intro_for_type(article_type, primary, secondary)
+    advices = _advices_for_type(article_type=article_type, primary=primary, secondary=secondary, tertiary=tertiary, keywords=keywords)
     return Topic(
         id=trend_topic_id(snapshot),
         name=f"热点：{primary}",
@@ -194,7 +190,7 @@ def _title_from_style(
 
 def _single_title_from_style(primary: str, article_type: str, snapshot: TrendSnapshot) -> str:
     if article_type == "methodology":
-        return f"【本周】#{primary}#餐饮老板别乱学，先搭这套赚钱方法"
+        return f"小店{primary}越做越乱？先用这3步把利润拉回来"
     if article_type == "ten_lessons":
         return "餐饮要赚钱 听我10句劝"
     return title_base_from_trends(snapshot)
@@ -207,28 +203,28 @@ def _title_templates(primary: str, secondary: str, tertiary: str, article_type: 
         ]
     if article_type == "methodology":
         return [
-            f"【本周】#{primary}#餐饮老板别乱学，先搭这套赚钱方法",
-            f"【今日】#{primary}#不是玄学，门店赚钱要按这套顺序来",
-            f"【本周】#{secondary}#餐饮老板想稳住利润，先用这套方法论",
-            f"【今日】#{primary}#胡哥讲透：小店也能执行的10个动作",
-            f"【本周】#{tertiary}#别再凭感觉开店，这套复盘方法更管用",
-            f"【今日】#{primary}#餐饮老板照着改，少走一半弯路",
-            f"【本周】#{secondary}#门店经营别蛮干，先抓这10个关键点",
-            f"【今日】#{primary}#老板最该补上的不是流量，是经营系统",
-            f"【本周】#{tertiary}#餐饮赚钱的底层逻辑，胡哥拆成10句话",
-            f"【今日】#{primary}#别急着跟风，先把方法用对",
+            f"小店{primary}越做越乱？先用这3步把利润拉回来",
+            f"{secondary}上不去？老板先把这张检查清单跑一遍",
+            f"门店利润总漏水？从{tertiary}开始做这4步",
+            f"别再凭感觉管店，{primary}要先拆成这3个动作",
+            f"生意不差却不赚钱？用这套方法先查{secondary}",
+            f"小店想稳住利润，别先加菜，先改{primary}",
+            f"{tertiary}越忙越乱？餐饮老板先用这份流程表",
+            f"复购起不来？别急着打折，先按3步重做{primary}",
+            f"员工执行总走样？把{secondary}拆成这张清单",
+            f"餐饮小店想少亏钱，先把{primary}这件事做细",
         ]
     return [
-        f"【今日】#{primary}#餐饮老板先别跟风，里面藏着赚钱信号",
-        f"【今日】#{primary}#又冲上热度，门店今天要改哪3件事？",
-        f"【本周】#{primary}#餐饮圈都在聊，真正该看的是这10点",
-        f"【今日】#{secondary}#别只看热闹，老板要看懂顾客为什么买",
-        f"【本周】#{primary}#这波热点背后，餐饮店最怕踩这几个坑",
-        f"【今日】#{tertiary}#胡哥提醒：热点来了，先算清这笔账",
-        f"【本周】#{primary}#为什么有的店跟风赚钱，有的店越跟越亏？",
-        f"【今日】#{secondary}#餐饮老板要醒醒，机会不在表面",
-        f"【本周】#{primary}#门店能不能接住热点，就看这10个动作",
-        f"【今日】#{primary}#别让流量白来，老板先做这份复盘",
+        f"{primary}又热了，餐饮店到底该改哪里？",
+        f"{primary}不是热闹，餐饮老板要先算这几笔账",
+        f"{primary}冲上来，门店别急跟风，先看这3个风险",
+        f"最近都在聊{primary}，餐饮店赚钱点可能不在表面",
+        f"{secondary}变了，餐饮老板今天要改哪3个动作？",
+        f"{primary}看着很火，为什么有的店越跟越亏？",
+        f"餐饮老板注意：{primary}背后藏着客流和毛利变化",
+        f"{primary}来了，门店先别卷价格，先改体验",
+        f"本周{primary}升温，小店要防这3个坑",
+        f"{primary}带来的不是风口，是餐饮老板的一次体检",
     ]
 
 
@@ -238,21 +234,114 @@ def _article_title(*, topic: Topic, issue_number: int, article_type: str) -> str
     return topic.title
 
 
-def _trend_advices(*, primary: str, secondary: str, keywords: list[str]) -> list[Advice]:
+def _advices_for_type(*, article_type: str, primary: str, secondary: str, tertiary: str, keywords: list[str]) -> list[Advice]:
+    if article_type == "methodology":
+        return _methodology_sections(primary=primary, secondary=secondary, tertiary=tertiary)
+    if article_type == "hot_interpretation":
+        return _hot_interpretation_sections(primary=primary, secondary=secondary, keywords=keywords)
+    return _ten_lessons_advices(primary=primary, secondary=secondary, keywords=keywords)
+
+
+def _ten_lessons_advices(*, primary: str, secondary: str, keywords: list[str]) -> list[Advice]:
     joined = "、".join(keywords[:5])
     rows = [
-        ("先别激动，先对账", f"{primary}火了，不等于你该冲。先看它影响客流、毛利还是复购，别把热闹当利润。"),
-        ("菜单只改一个点", f"围绕{secondary}，先调推荐位、套餐名或一句卖点。小改能测，大改容易把后厨改哭。"),
-        ("员工要会一句话解释", f"顾客问起热点，前厅别装网速慢。准备一句人话：我们怎么做、为什么放心。"),
-        ("后厨标准别掉链子", f"越有热度，越要稳克重、卫生、出餐。热点会放大优点，也会放大小毛病。"),
-        ("优惠别当止痛药", f"产品没站稳，打折只是给问题加扩音器。先把体验补上，再谈拉新。"),
-        ("每天盯一个数字", f"围绕{joined}，盯差评、退款、复购或出餐时长。数据不会哄老板开心，但会救老板钱包。"),
-        ("短视频别只喊口号", f"拍一个真实动作：备料、出餐、检查、顾客反馈。真实比空话更像生意。"),
-        ("老客先试，不急全店铺", f"新动作先给老客、小范围测。老客都不买账，别急着全网广播。"),
-        ("把热点写进SOP", f"能留下来的不是热搜，是流程。把今天有效的话术、菜单和检查项写下来。"),
-        ("热度过去，能力留下", f"{primary}会降温，但标准、复盘和信任会留在店里。餐饮赚钱，靠的就是这些慢功夫。")
+        ("少上新，多算账", f"新菜不是越多越赚钱。先看毛利、出餐、复购，别让菜单比老板还累。"),
+        ("客流贵，复购香", f"拉新像请客，复购像收租。今天先把老客二次到店的理由写清楚。"),
+        ("菜单乱，利润散", f"围绕{primary}，只留能卖、能赚、能快出的菜。菜单瘦一点，利润反而胖一点。"),
+        ("便宜能来人，体验能留人", f"打折只能让顾客进门，服务和出品才让顾客回头。别把优惠当止痛药。"),
+        ("员工不会说，老板白忙活", f"把主推菜、活动、安心点写成一句话术。员工说得清，顾客才买得明白。"),
+        ("后厨稳，前厅才敢喊", f"克重、出餐、卫生不稳，营销越猛翻车越快。先稳后厨，再放大声音。"),
+        ("别盯热闹，要盯数字", f"围绕{joined}，每天看差评、退款、出餐时长、复购率。数字难听，但比感觉靠谱。"),
+        ("小改先试，大改慢来", f"新套餐、新话术先小范围测。老客点头了，再全店铺开，别一上来就豪赌。"),
+        ("老板别只救火，要做流程", f"今天发现的问题，明天要变成检查表。靠人盯会累死，靠流程才省命。"),
+        ("活得久，才有钱赚", f"餐饮不是百米冲刺，是天天跑小步。少踩坑、稳复购，店才有明天。"),
     ]
     return [Advice(index=index, title=title, body=body) for index, (title, body) in enumerate(rows, start=1)]
+
+
+def _hot_interpretation_sections(*, primary: str, secondary: str, keywords: list[str]) -> list[Advice]:
+    return [
+        Advice(1, "这个热点为什么和餐饮老板有关", f"{primary}表面是话题，背后是顾客选择变了。顾客在意价格、速度、安心感，餐饮店就不能只看热搜，要看它会不会影响进店理由。"),
+        Advice(2, "它影响哪几笔钱", f"先拆五笔账：客流会不会被带动，客单会不会被压低，毛利会不会被吃掉，复购会不会变强，风险会不会放大。{secondary}如果也在升温，说明顾客不是随便聊聊。"),
+        Advice(3, "门店今天能做的3个动作", "第一，改一句前厅话术，让员工讲清楚你家优势。第二，调一个菜单推荐位，把高毛利产品放到顾客眼前。第三，查一次差评和退款，别让小问题借热点变大事故。"),
+        Advice(4, "胡哥提醒", f"热点不是让老板追着跑，是让老板回头看店。今天能落地一个动作，比转发十条{primary}更值钱。"),
+    ]
+
+
+def _methodology_sections(*, primary: str, secondary: str, tertiary: str) -> list[Advice]:
+    return [
+        Advice(1, "问题为什么发生", f"很多店不是不会卖，而是{primary}没标准：菜单想加就加，活动想做就做，员工靠感觉执行。结果越忙越乱，利润偷偷漏。"),
+        Advice(2, "老板常见误区", "第一，觉得菜越多越能满足顾客。第二，觉得打折能解决复购。第三，觉得员工不执行就是态度差。其实多数问题，是标准没写清、检查没跟上。"),
+        Advice(3, "可执行方法：3步先落地", f"第一步，列出销量前10和毛利前10，找出真正赚钱的菜。第二步，把{secondary}相关动作写成一句话术和一张检查表。第三步，每晚复盘3个数：客单、毛利、复购。"),
+        Advice(4, "检查清单", f"今天就查：菜单有没有主推，员工会不会讲，出餐是否稳定，差评有没有归类，{tertiary}有没有负责人。五项过三项，店就能往前走。"),
+        Advice(5, "胡哥总结", "方法论不是挂墙上的口号，是每天能照着做的动作。餐饮老板少一点凭感觉，多一点检查表，利润就不会天天失踪。"),
+    ]
+
+
+def _topic_for_article_type(topic: Topic, *, article_type: str, issue_number: int) -> Topic:
+    keywords = topic.trend_keywords or [topic.name, "复购", "门店利润"]
+    primary = keywords[0] if keywords else topic.name
+    secondary = keywords[1] if len(keywords) > 1 else "复购"
+    tertiary = keywords[2] if len(keywords) > 2 else "菜单"
+    if article_type == "ten_lessons":
+        return Topic(
+            id=topic.id,
+            name=topic.name,
+            title=f"餐饮要赚钱 听我10句劝｜第{issue_number}期",
+            digest="10句短劝，帮餐饮老板把利润、复购、菜单和执行重新捋顺。",
+            intro=f"本期主题：围绕{primary}，聊餐饮老板今天就能用的10句劝。",
+            advices=_ten_lessons_advices(primary=primary, secondary=secondary, keywords=keywords),
+            trend_keywords=keywords,
+            trend_summary=topic.trend_summary,
+            trend_sources=topic.trend_sources,
+        )
+    if article_type == "methodology":
+        return Topic(
+            id=topic.id,
+            name=topic.name,
+            title=_title_templates(primary, secondary, tertiary, "methodology")[issue_number % 10],
+            digest=f"围绕{primary}，给餐饮老板一套能落地的经营方法。",
+            intro=f"开店最怕不是没想法，是想法太多、动作太乱。今天就拿{primary}这个痛点，拆成一套能执行的方法。",
+            advices=_methodology_sections(primary=primary, secondary=secondary, tertiary=tertiary),
+            trend_keywords=keywords,
+            trend_summary=topic.trend_summary,
+            trend_sources=topic.trend_sources,
+        )
+    return Topic(
+        id=topic.id,
+        name=topic.name,
+        title=_title_templates(primary, secondary, tertiary, "hot_interpretation")[issue_number % 10],
+        digest=f"从{primary}切入，帮餐饮老板看清客流、客单、毛利、复购和风险。",
+        intro=f"最近{primary}又被聊起来了。别急着跟风，胡哥先帮你把热闹翻译成门店能做的事。",
+        advices=_hot_interpretation_sections(primary=primary, secondary=secondary, keywords=keywords),
+        trend_keywords=keywords,
+        trend_summary=topic.trend_summary,
+        trend_sources=topic.trend_sources,
+    )
+
+
+def _digest_for_type(article_type: str, primary: str, secondary: str) -> str:
+    if article_type == "methodology":
+        return f"围绕{primary}这个经营问题，拆出餐饮门店能直接执行的方法和检查清单。"
+    if article_type == "hot_interpretation":
+        return f"从{primary}热点切入，拆清它对客流、客单、毛利、复购和风险的影响。"
+    return f"胡哥围绕{primary}、{secondary}，给餐饮老板10句短、狠、能执行的劝。"
+
+
+def _intro_for_type(article_type: str, primary: str, secondary: str) -> str:
+    if article_type == "methodology":
+        return f"小店最怕{primary}越做越乱：老板忙、员工乱、利润薄。今天不讲玄学，只拆能落地的步骤。"
+    if article_type == "hot_interpretation":
+        return f"最近{primary}又热了。餐饮老板别只看热闹，先看它会不会影响顾客进店、点单和复购。"
+    return f"本期主题：围绕{primary}和{secondary}，聊餐饮老板今天就能用的10句劝。"
+
+
+def _conclusion(*, author_name: str, brand_name: str, article_type: str) -> str:
+    if article_type == "methodology":
+        return f"{author_name}总结：方法不是越复杂越厉害，能每天照着做才值钱。关注「{brand_name}」，咱们继续把小店利润一点点抠回来。"
+    if article_type == "hot_interpretation":
+        return f"{author_name}总结：热点会过去，动作要留下。今天先改一个菜单、一个话术、一个检查项，别让流量白白路过。"
+    return f"{author_name}总结：餐饮赚钱没有神招，都是笨功夫。少一点拍脑袋，多一点算账和复盘，店就能活得久、赚得稳。"
 
 
 def default_topic_library_path() -> Path:

@@ -11,6 +11,7 @@ from .history import history_path, issue_number_for_date, read_history, record_h
 from .image_checks import ensure_article_images, validate_article_images
 from .image_prompt_workbench import build_workbench_from_article
 from .images import create_cover
+from .quality import check_article_quality
 from .render import render_article_html
 from .topic_factory import ensure_fresh_topic_batch
 from .tool_settings import load_tool_settings, tool_settings_path
@@ -107,6 +108,7 @@ def build_daily_article(
         output_path=html_path,
     )
     preview_image_check = ensure_article_images(html, html_path=html_path)
+    quality_checks = check_article_quality(article, html)
 
     draft_media_id: str | None = None
     upload_image_check = None
@@ -125,6 +127,7 @@ def build_daily_article(
             output_path=html_path,
         )
         upload_image_check = ensure_article_images(html, html_path=html_path)
+        quality_checks = check_article_quality(article, html)
         thumb_media_id = client.upload_cover_thumb(cover_path)
         draft_media_id = client.add_draft(
             title=article.title,
@@ -140,6 +143,7 @@ def build_daily_article(
         json.dumps(
             {
                 "title": article.title,
+                "article_type": article.article_type,
                 "digest": article.digest,
                 "author": article.author,
                 "publish_date": article.publish_date.isoformat(),
@@ -165,6 +169,7 @@ def build_daily_article(
                     "errors": (upload_image_check or preview_image_check).errors,
                     "copyright_policy": "文章正文只允许本地原创生成图片，上传后只允许微信素材域名图片。",
                 },
+                "quality_checks": quality_checks,
                 "image_prompt_workbench": build_workbench_from_article(article, brand_name=settings.brand_name),
                 "tags": article.tags,
                 "tool_settings": {

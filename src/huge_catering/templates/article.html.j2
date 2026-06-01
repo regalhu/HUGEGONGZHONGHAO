@@ -2,13 +2,13 @@
   <p style="margin:0 0 18px;">{{ article.intro }}</p>
 
   <p style="margin:18px 0;padding:14px;border:1px dashed #c7c7cc;color:#6b7280;text-align:center;">
-    [图片插入位]
+    【图片插入位：请在这里插入本期配图】
   </p>
 
   {% for advice in article.advices %}
   <section style="margin:22px 0;padding:18px 18px 16px;border-left:5px solid #b42318;background:#fff7ed;">
     <p style="margin:0 0 8px;color:#b42318;font-size:18px;font-weight:700;">
-      {{ "%02d"|format(advice.index) }} {{ advice.title }}
+      {% if article.article_type == "ten_lessons" %}{{ "%02d"|format(advice.index) }} {% endif %}{{ advice.title }}
     </p>
     <p style="margin:0;color:#374151;">{{ advice.body }}</p>
   </section>

@@ -46,9 +46,14 @@
       草稿：{{ metadata.draft_media_id or "未上传" }}
     </div>
     <div class="actions">
-      <button type="button" class="copy-draft secondary" data-target="copy-markdown">复制 Markdown</button>
+      <button type="button" class="copy-draft secondary" data-target="copy-markdown">复制全文</button>
       <button type="button" class="copy-draft secondary" data-target="copy-html">复制 HTML</button>
+      <a class="button secondary" href="{{ url_for('export_draft', publish_date=publish_date, file_type='md', archived=1 if archived else 0) }}">导出 Markdown</a>
+      <a class="button secondary" href="{{ url_for('export_draft', publish_date=publish_date, file_type='html', archived=1 if archived else 0) }}">导出 HTML</a>
       {% if not archived %}
+        <form method="post" action="{{ url_for('regenerate_one', publish_date=publish_date) }}">
+          <button class="secondary" type="submit">重新生成本篇</button>
+        </form>
         <form method="post" action="{{ url_for('upload_one', publish_date=publish_date) }}">
           <button type="submit">上传到公众号草稿箱</button>
         </form>
@@ -66,72 +71,19 @@
     <textarea id="copy-markdown" class="copy-source" readonly>{{ copy_markdown }}</textarea>
     <textarea id="copy-html" class="copy-source" readonly>{{ copy_html }}</textarea>
     <section class="panel">
-      <h2>封面图</h2>
-      <img src="{{ url_for('outputs', filename=('_archive/' if archived else '') ~ publish_date ~ '/cover.jpg') }}" alt="封面图">
-    </section>
-    <section class="panel">
       <h2>正文排版</h2>
       <iframe src="{{ url_for('outputs', filename=('_archive/' if archived else '') ~ publish_date ~ '/article.html') }}"></iframe>
     </section>
     <section class="panel">
-      <h2>图片生成工作台</h2>
-      <div class="workbench-note">
-        每篇公众号文章固定 1 张封面图。当前版本为低成本人工协作模式：系统负责生成封面图提示词，图片请复制到 ChatGPT Plus 中生成，然后回到主页面替换封面图。
-      </div>
-      <div class="actions">
-        <a class="button" href="{{ image_workbench.chatgptUrl or 'https://chatgpt.com/' }}" target="_blank" rel="noopener">打开 ChatGPT 图片生成</a>
-      </div>
-      <div class="meta">当前 imageProvider：{{ image_workbench.imageProvider or "manual_chatgpt" }}</div>
-      <div class="prompt-grid">
-        {% for group in image_workbench.groups %}
-          <article class="prompt-card">
-            <div class="prompt-head">
-              <div>
-                <div class="prompt-title">{{ group.purpose }}</div>
-                <div class="ratio">推荐尺寸比例：{{ group.aspect_ratio }}</div>
-              </div>
-              <button type="button" class="copy-button" data-target="prompt-{{ loop.index }}">复制提示词</button>
-            </div>
-            <div class="field">
-              <b>中文提示词</b>
-              <p>{{ group.chinese_prompt }}</p>
-            </div>
-            <div class="field">
-              <b>English Prompt</b>
-              <p>{{ group.english_prompt }}</p>
-            </div>
-            <div class="field">
-              <b>风格说明</b>
-              <p>{{ group.style_notes }}</p>
-            </div>
-            <div class="field">
-              <b>禁止元素</b>
-              <p>{{ group.negative_prompt }}</p>
-            </div>
-            <textarea id="prompt-{{ loop.index }}" class="prompt-copy" readonly>{{ group.copy_text }}</textarea>
-          </article>
+      <h2>质量检查</h2>
+      <div class="meta">
+        {% for check in metadata.quality_checks or [] %}
+          {{ "通过" if check.ok else "需检查" }}：{{ check.name }} - {{ check.message }}<br>
         {% endfor %}
       </div>
     </section>
   </main>
   <script>
-    document.querySelectorAll(".copy-button").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const target = document.getElementById(button.dataset.target);
-        if (!target) return;
-        target.select();
-        target.setSelectionRange(0, target.value.length);
-        try {
-          await navigator.clipboard.writeText(target.value);
-          button.textContent = "已复制";
-          window.setTimeout(() => { button.textContent = "复制提示词"; }, 1400);
-        } catch (error) {
-          document.execCommand("copy");
-          button.textContent = "已复制";
-          window.setTimeout(() => { button.textContent = "复制提示词"; }, 1400);
-        }
-      });
-    });
     document.querySelectorAll(".copy-draft").forEach((button) => {
       button.addEventListener("click", async () => {
         const target = document.getElementById(button.dataset.target);

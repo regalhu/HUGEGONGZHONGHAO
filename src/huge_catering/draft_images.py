@@ -55,6 +55,7 @@ def article_from_metadata(metadata: dict[str, Any]) -> Article:
         intro=str(metadata.get("intro", "")),
         advices=advices,
         conclusion=str(metadata.get("conclusion", "")),
+        article_type=str(metadata.get("article_type") or metadata.get("tool_settings", {}).get("article_type") or "ten_lessons"),
         trend_keywords=[str(item) for item in metadata.get("trend_keywords", [])],
         trend_summary=str(metadata.get("trend_summary", "")),
         trend_sources=[str(item) for item in metadata.get("trend_sources", [])],

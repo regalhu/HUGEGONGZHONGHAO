@@ -19,6 +19,7 @@ from .draft_images import article_from_metadata, manual_images_from_metadata, re
 from .image_checks import ensure_article_images
 from .pipeline import build_daily_article
 from .image_prompt_workbench import build_workbench_from_metadata
+from .quality import check_article_quality
 from .render import render_article_html
 from .tool_settings import ToolSettings, load_tool_settings, save_tool_settings, tool_settings_path
 from .trends import TrendSnapshot, load_or_fetch_trends, trend_cache_path
@@ -36,6 +37,7 @@ class PreviewItem:
     publish_date: str
     title: str
     issue_number: int | None
+    article_type: str
     topic_name: str
     keywords: list[str]
     draft_media_id: str | None
@@ -47,6 +49,7 @@ class PreviewItem:
     image_workbench: dict[str, Any] | None = None
     copy_markdown: str = ""
     copy_html: str = ""
+    quality_ok: bool = True
 
 
 def create_app() -> Flask:
@@ -125,7 +128,7 @@ def create_app() -> Flask:
         trend_keywords: list[str] = []
         if settings.enable_trend_content and not tool_settings.keyword_list:
             try:
-                trend_snapshot = _recent_trend_snapshot(settings, start_date=start_date)
+                trend_snapshot = _recent_trend_snapshot(settings, start_date=start_date, fetch_missing=False)
                 trend_keywords = trend_snapshot.keywords[:count]
             except Exception:
                 trend_snapshot = None
@@ -177,6 +180,24 @@ def create_app() -> Flask:
                 _upload_existing_draft(settings, parsed)
             else:
                 build_daily_article(settings, publish_date=parsed, upload_draft=True)
+        return redirect(url_for("preview", publish_date=publish_date))
+
+    @app.post("/regenerate/<publish_date>")
+    def regenerate_one(publish_date: str) -> Response:
+        parsed = _parse_date(publish_date)
+        if parsed is None:
+            abort(404)
+        metadata = _read_metadata(settings, parsed)
+        issue_number = metadata.get("issue_number") if metadata else None
+        focus_keyword = str(metadata.get("trend_focus_keyword") or "") if metadata else None
+        build_daily_article(
+            settings,
+            publish_date=parsed,
+            upload_draft=False,
+            seed=int(time.time()),
+            trend_keyword=focus_keyword or None,
+            issue_number_override=issue_number if isinstance(issue_number, int) else None,
+        )
         return redirect(url_for("preview", publish_date=publish_date))
 
     @app.post("/preview/<publish_date>/cover")
@@ -336,6 +357,29 @@ def create_app() -> Flask:
     def outputs(filename: str) -> Response:
         return send_from_directory(settings.output_dir, filename)
 
+    @app.get("/export/<publish_date>.<file_type>")
+    def export_draft(publish_date: str, file_type: str) -> Response:
+        parsed = _parse_date(publish_date)
+        if parsed is None or file_type not in {"md", "html"}:
+            abort(404)
+        archived = request.args.get("archived") == "1"
+        metadata = _read_metadata(settings, parsed, archived=archived)
+        if not metadata:
+            abort(404)
+        if file_type == "md":
+            content = _draft_markdown(metadata)
+            mimetype = "text/markdown; charset=utf-8"
+            filename = f"{publish_date}.md"
+        else:
+            content = _draft_copy_html(settings, parsed, metadata, archived=archived)
+            mimetype = "text/html; charset=utf-8"
+            filename = f"{publish_date}.html"
+        return Response(
+            content,
+            mimetype=mimetype,
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
     @app.get("/health")
     def health() -> dict[str, object]:
         return {
@@ -458,6 +502,7 @@ def _preview_item(settings: Settings, publish_date: str, *, archived: bool = Fal
         publish_date=publish_date,
         title=str(metadata.get("title", "")),
         issue_number=metadata.get("issue_number"),
+        article_type=str(metadata.get("article_type") or metadata.get("tool_settings", {}).get("article_type") or ""),
         topic_name=str(metadata.get("topic_name", "")),
         keywords=[str(item) for item in metadata.get("trend_keywords", [])],
         draft_media_id=metadata.get("draft_media_id"),
@@ -469,6 +514,7 @@ def _preview_item(settings: Settings, publish_date: str, *, archived: bool = Fal
         image_workbench=_workbench_from_metadata(metadata, settings),
         copy_markdown=_draft_markdown(metadata),
         copy_html=_draft_copy_html(settings, parsed, metadata, archived=archived),
+        quality_ok=_quality_ok(metadata),
     )
 
 
@@ -486,6 +532,13 @@ def _focus_count(metadata: dict[str, Any]) -> int | None:
         return None
     value = counts.get(keyword)
     return value if isinstance(value, int) else None
+
+
+def _quality_ok(metadata: dict[str, Any]) -> bool:
+    checks = metadata.get("quality_checks")
+    if not isinstance(checks, list):
+        return True
+    return all(bool(item.get("ok")) for item in checks if isinstance(item, dict))
 
 
 def _archive_draft(settings: Settings, publish_date: date) -> None:
@@ -538,6 +591,7 @@ def _upload_existing_draft(settings: Settings, publish_date: date) -> None:
         output_path=run_dir / "article.html",
     )
     image_check = ensure_article_images(html, html_path=run_dir / "article.html")
+    metadata["quality_checks"] = check_article_quality(article, html)
     thumb_media_id = client.upload_cover_thumb(run_dir / "cover.jpg")
     draft_media_id = client.add_draft(
         title=article.title,
@@ -592,7 +646,7 @@ def _draft_markdown(metadata: dict[str, Any]) -> str:
     lines = [
         f"# {metadata.get('title', '')}",
         "",
-        "[图片插入位]",
+        "【图片插入位：请在这里插入本期配图】",
         "",
         str(metadata.get("intro", "")),
         "",

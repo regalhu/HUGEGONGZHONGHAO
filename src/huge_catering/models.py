@@ -23,6 +23,7 @@ class Article:
     intro: str
     advices: list[Advice]
     conclusion: str
+    article_type: str = "ten_lessons"
     trend_keywords: list[str] = field(default_factory=list)
     trend_summary: str = ""
     trend_sources: list[str] = field(default_factory=list)

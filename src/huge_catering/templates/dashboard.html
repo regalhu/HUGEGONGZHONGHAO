@@ -283,7 +283,7 @@
             </label>
           </div>
           <div class="keyword-panel">
-            <div class="subtle">关键词抓取结果：最近 5 天，来自网络公开平台及全网搜索引擎的餐饮类高频关键词。</div>
+            <div class="subtle">关键词结果：优先读取本地缓存和内置餐饮经营词库，用于辅助生成选题。</div>
             <div class="keyword-list">
               {% for keyword in keyword_results %}
                 <div class="keyword-row">
@@ -293,7 +293,7 @@
               {% endfor %}
             </div>
             {% if keyword_results %}
-              <div class="subtle" style="margin-top:10px;">数据源：{{ keyword_results[0].source_label }}{% if keyword_results[0].source_count %}，近5天抓取标题/摘要约 {{ keyword_results[0].source_count }} 条{% endif %}</div>
+              <div class="subtle" style="margin-top:10px;">来源：{{ "本地缓存" if keyword_results[0].source_count else "内置餐饮经营词库" }}</div>
             {% endif %}
           </div>
           <div class="keyword-panel">
@@ -320,9 +320,6 @@
           </div>
         </div>
         <form class="toolbar" method="post" action="{{ url_for('generate_batch') }}">
-          <label id="date-field">起始日期
-            <input type="date" name="start_date" value="{{ today }}">
-          </label>
           <label>生成篇数
             <input type="number" name="count" min="1" max="10" value="{{ batch_size }}">
           </label>
@@ -378,7 +375,8 @@
               {% endif %}
             </div>
             <div class="title">{{ item.title }}</div>
-            <div class="meta">{{ item.publish_date }} · {{ item.topic_name }}</div>
+            <div class="meta">{{ item.publish_date }} · {{ item.topic_name }}{% if item.article_type %} · {{ {"ten_lessons":"餐饮10句劝","hot_interpretation":"餐饮热点解读","methodology":"餐饮方法论"}.get(item.article_type, item.article_type) }}{% endif %}</div>
+            <div class="meta">质量检查：{{ "通过" if item.quality_ok else "需检查" }}</div>
             {% if item.focus_keyword %}
               <div class="meta">热点词：{{ item.focus_keyword }}{% if item.focus_count %} · 引用约 {{ item.focus_count }} 次{% endif %}</div>
             {% endif %}
@@ -391,8 +389,10 @@
               <div class="meta">media_id：{{ item.draft_media_id }}</div>
             {% endif %}
             <div class="actions">
-              <button class="secondary copy-draft" type="button" data-target="md-{{ loop.index }}">复制 Markdown</button>
+              <button class="secondary copy-draft" type="button" data-target="md-{{ loop.index }}">复制全文</button>
               <button class="secondary copy-draft" type="button" data-target="html-{{ loop.index }}">复制 HTML</button>
+              <a class="button secondary" href="{{ url_for('export_draft', publish_date=item.publish_date, file_type='md', archived=1 if archive_view else 0) }}">导出 Markdown</a>
+              <a class="button secondary" href="{{ url_for('export_draft', publish_date=item.publish_date, file_type='html', archived=1 if archive_view else 0) }}">导出 HTML</a>
               <textarea id="md-{{ loop.index }}" class="copy-source" readonly>{{ item.copy_markdown }}</textarea>
               <textarea id="html-{{ loop.index }}" class="copy-source" readonly>{{ item.copy_html }}</textarea>
               <a class="button secondary" href="{{ url_for('preview', publish_date=item.publish_date, archived=1 if archive_view else 0) }}">预览</a>
@@ -405,6 +405,9 @@
               {% else %}
                 <form method="post" action="{{ url_for('upload_one', publish_date=item.publish_date) }}">
                   <button type="submit">上传</button>
+                </form>
+                <form method="post" action="{{ url_for('regenerate_one', publish_date=item.publish_date) }}">
+                  <button class="secondary" type="submit">重新生成</button>
                 </form>
                 <form method="post" action="{{ url_for('drafts_action') }}">
                   <input type="hidden" name="dates" value="{{ item.publish_date }}">
@@ -425,12 +428,10 @@
   </main>
   <script>
     const articleTypeSelect = document.getElementById("article-type-select");
-    const dateField = document.getElementById("date-field");
     const issueField = document.getElementById("issue-field");
     function syncArticleTypeFields() {
       if (!articleTypeSelect) return;
       const isTenLessons = articleTypeSelect.value === "ten_lessons";
-      if (dateField) dateField.style.display = isTenLessons ? "none" : "grid";
       if (issueField) {
         issueField.style.display = isTenLessons ? "grid" : "none";
         const input = issueField.querySelector("input");
