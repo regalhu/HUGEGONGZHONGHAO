@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>胡哥说餐饮 - 草稿生成后台</title>
+  <title>胡哥说餐饮 - 主页面</title>
   <style>
     body { margin: 0; font-family: "Microsoft YaHei", Arial, sans-serif; background: #f6f3ee; color: #20252d; }
     header { padding: 24px 32px; background: #20252d; color: #fff; }
@@ -11,7 +11,9 @@
     main { max-width: 1180px; margin: 0 auto; padding: 28px; }
     .toolbar { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; margin-bottom: 24px; }
     label { display: grid; gap: 6px; font-size: 14px; color: #555; }
-    input { height: 38px; padding: 0 10px; border: 1px solid #d8d1c5; border-radius: 6px; background: #fff; }
+    input, select, textarea { border: 1px solid #d8d1c5; border-radius: 6px; background: #fff; box-sizing: border-box; font: inherit; }
+    input, select { height: 38px; padding: 0 10px; }
+    textarea { min-height: 82px; padding: 10px; line-height: 1.6; resize: vertical; }
     button, .button { height: 40px; padding: 0 16px; border: 0; border-radius: 6px; background: #b42318; color: #fff; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
     button.secondary, .button.secondary { background: #20252d; }
     .notice { padding: 12px 14px; background: #fff7ed; border-left: 4px solid #c78b2f; margin-bottom: 18px; }
@@ -26,22 +28,92 @@
     .danger { background: #7f1d1d; }
     .select-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
     .select-row input { width:18px; height:18px; }
+    .panel { background:#fff; border:1px solid #e4ded4; border-radius:8px; padding:18px; margin-bottom:18px; }
+    .settings-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:14px; }
+    .image-slots { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:12px; }
+    .slot-box { border:1px solid #e4ded4; border-radius:8px; padding:10px; background:#fffdf9; }
+    .slot-box img { max-width:100%; height:auto; border-radius:6px; border:1px solid #e4ded4; margin:8px 0; }
+    details { margin-top:12px; }
+    summary { cursor:pointer; font-weight:800; color:#20252d; }
+    .prompt-card { border:1px solid #e4ded4; border-radius:8px; padding:10px; margin-top:10px; background:#fbfaf7; }
+    textarea.prompt-copy { width:100%; min-height:120px; margin-top:8px; color:#374151; }
+    @media (max-width: 760px) { .settings-grid, .image-slots { grid-template-columns: 1fr; } main { padding:18px; } }
   </style>
 </head>
 <body>
   <header>
-    <a href="{{ url_for('index') }}">草稿列表</a>
+    <a href="{{ url_for('index') }}">主页面</a>
     <a href="{{ url_for('archive') }}">归档列表</a>
-    <a href="{{ url_for('settings_page') }}">生成设置</a>
-    <h1>{{ "归档草稿" if archive_view else "胡哥说餐饮 草稿生成后台" }}</h1>
-    <div style="color:#f4d6bd;font-size:14px;">当前配图：{{ "OpenAI" if tool_settings.image_provider == "openai" else "本地漫画" }} · 标题风格：{{ tool_settings.title_style }}</div>
+    <h1>{{ "归档草稿" if archive_view else "主页面" }}</h1>
+    <div style="color:#f4d6bd;font-size:14px;">标题风格：{{ tool_settings.title_style }} · 图片模式：manual_chatgpt</div>
   </header>
   <main>
     {% if not has_wechat %}
       <div class="notice">公众号 AppID/AppSecret 未配置。可以生成预览，但不能上传公众号草稿箱。</div>
     {% endif %}
+    {% if settings_saved %}
+      <div class="notice">生成设置已保存。下一次生成预览或上传草稿时会自动使用。</div>
+    {% endif %}
 
     {% if not archive_view %}
+      <section class="panel">
+        <h2>生成设置</h2>
+        <form method="post" action="{{ url_for('save_settings') }}">
+          <div class="settings-grid">
+            <label>标题风格
+              <select name="title_style">
+                <option value="hot_warning" {% if tool_settings.title_style == "hot_warning" %}selected{% endif %}>热点提醒型</option>
+                <option value="ten_lessons" {% if tool_settings.title_style == "ten_lessons" %}selected{% endif %}>10句劝型</option>
+                <option value="data_signal" {% if tool_settings.title_style == "data_signal" %}selected{% endif %}>经营信号型</option>
+                <option value="question_hook" {% if tool_settings.title_style == "question_hook" %}selected{% endif %}>问题钩子型</option>
+              </select>
+            </label>
+            <label>关键词覆盖
+              <input name="keyword_override" value="{{ tool_settings.keyword_override }}" placeholder="例如：外卖,复购,食品安全">
+            </label>
+          </div>
+          <label style="margin-top:14px;">文章生成机制/角度
+            <textarea name="article_angle">{{ tool_settings.article_angle }}</textarea>
+          </label>
+          <div class="settings-grid" style="margin-top:14px;">
+            <label>图片生成方式
+              <select name="image_provider">
+                <option value="local" {% if tool_settings.image_provider == "local" %}selected{% endif %}>本地漫画图</option>
+                <option value="openai" {% if tool_settings.image_provider == "openai" %}selected{% endif %}>OpenAI 图片生成</option>
+              </select>
+            </label>
+            <label>OpenAI API Key
+              <input type="password" name="openai_api_key" value="{{ tool_settings.masked().openai_api_key }}" autocomplete="off" placeholder="sk-...">
+            </label>
+            <label>图片模型
+              <input name="openai_image_model" value="{{ tool_settings.openai_image_model }}">
+            </label>
+            <label>图片尺寸
+              <select name="openai_image_size">
+                <option value="1024x1024" {% if tool_settings.openai_image_size == "1024x1024" %}selected{% endif %}>1024x1024</option>
+                <option value="1024x1536" {% if tool_settings.openai_image_size == "1024x1536" %}selected{% endif %}>1024x1536</option>
+                <option value="1536x1024" {% if tool_settings.openai_image_size == "1536x1024" %}selected{% endif %}>1536x1024</option>
+              </select>
+            </label>
+            <label>图片质量
+              <select name="openai_image_quality">
+                <option value="low" {% if tool_settings.openai_image_quality == "low" %}selected{% endif %}>low</option>
+                <option value="medium" {% if tool_settings.openai_image_quality == "medium" %}selected{% endif %}>medium</option>
+                <option value="high" {% if tool_settings.openai_image_quality == "high" %}selected{% endif %}>high</option>
+              </select>
+            </label>
+          </div>
+          <label style="margin-top:14px;">胡哥形象
+            <textarea name="huge_profile_prompt">{{ tool_settings.huge_profile_prompt }}</textarea>
+          </label>
+          <label style="margin-top:14px;">图片风格
+            <textarea name="image_style_prompt">{{ tool_settings.image_style_prompt }}</textarea>
+          </label>
+          <p class="meta">图片工作台采用低成本人工协作模式：主页面生成提示词，图片复制到 ChatGPT Plus 生成后，再加载到草稿图片位置。</p>
+          <button type="submit">保存设置</button>
+        </form>
+      </section>
+
       <form class="toolbar" method="post" action="{{ url_for('generate_batch') }}">
         <label>起始日期
           <input type="date" name="start_date" value="{{ today }}">
@@ -121,11 +193,75 @@
               </form>
             {% endif %}
           </div>
+          <details>
+            <summary>图片工具</summary>
+            <p class="meta">当前版本为低成本人工协作模式：复制提示词到 ChatGPT Plus 生成图片，然后上传到对应图片位置。</p>
+            <div class="actions">
+              <a class="button" href="{{ item.image_workbench.chatgptUrl if item.image_workbench else 'https://chatgpt.com/' }}" target="_blank" rel="noopener">打开 ChatGPT 图片生成</a>
+            </div>
+            <div class="image-slots">
+              {% for slot in image_slots %}
+                <div class="slot-box">
+                  <div class="title" style="font-size:14px;">{{ slot.label }}</div>
+                  <div class="meta">{{ slot.description }}</div>
+                  {% if item.manual_images and item.manual_images.get(slot.id) %}
+                    <img src="{{ url_for('outputs', filename=('_archive/' if archive_view else '') ~ item.publish_date ~ '/' ~ item.manual_images.get(slot.id)) }}" alt="{{ slot.label }}">
+                    {% if not archive_view %}
+                      <form method="post" action="{{ url_for('remove_preview_image', publish_date=item.publish_date) }}">
+                        <input type="hidden" name="return_to" value="index">
+                        <input type="hidden" name="slot_id" value="{{ slot.id }}">
+                        <button type="submit">移除</button>
+                      </form>
+                    {% endif %}
+                  {% else %}
+                    <div class="meta">当前为空白图片区</div>
+                  {% endif %}
+                  {% if not archive_view %}
+                    <form method="post" action="{{ url_for('upload_preview_image', publish_date=item.publish_date) }}" enctype="multipart/form-data">
+                      <input type="hidden" name="return_to" value="index">
+                      <input type="hidden" name="slot_id" value="{{ slot.id }}">
+                      <input type="file" name="image" accept="image/*" required>
+                      <button class="secondary" type="submit">{{ "替换图片" if item.manual_images and item.manual_images.get(slot.id) else "加载图片" }}</button>
+                    </form>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+            {% if item.image_workbench %}
+              <details>
+                <summary>图片生成提示词</summary>
+                {% for group in item.image_workbench.groups %}
+                  <div class="prompt-card">
+                    <div class="title" style="font-size:15px;">{{ group.purpose }} · {{ group.aspect_ratio }}</div>
+                    <button type="button" class="copy-button" data-target="main-prompt-{{ item.publish_date }}-{{ loop.index }}">复制提示词</button>
+                    <textarea id="main-prompt-{{ item.publish_date }}-{{ loop.index }}" class="prompt-copy" readonly>{{ group.copy_text }}</textarea>
+                  </div>
+                {% endfor %}
+              </details>
+            {% endif %}
+          </details>
         </article>
       {% else %}
         <div class="notice">{{ "归档里还没有草稿。" if archive_view else "还没有预览稿。点击上方按钮生成 10 篇。" }}</div>
       {% endfor %}
     </section>
   </main>
+  <script>
+    document.querySelectorAll(".copy-button").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const target = document.getElementById(button.dataset.target);
+        if (!target) return;
+        target.select();
+        target.setSelectionRange(0, target.value.length);
+        try {
+          await navigator.clipboard.writeText(target.value);
+        } catch (error) {
+          document.execCommand("copy");
+        }
+        button.textContent = "已复制";
+        window.setTimeout(() => { button.textContent = "复制提示词"; }, 1400);
+      });
+    });
+  </script>
 </body>
 </html>

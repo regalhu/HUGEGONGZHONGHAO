@@ -38,6 +38,8 @@ class PreviewItem:
     archived: bool = False
     focus_keyword: str | None = None
     focus_count: int | None = None
+    manual_images: dict[str, str] | None = None
+    image_workbench: dict[str, Any] | None = None
 
 
 def create_app() -> Flask:
@@ -58,6 +60,8 @@ def create_app() -> Flask:
             batch_size=BATCH_SIZE,
             tool_settings=tool_settings,
             archive_view=False,
+            settings_saved=request.args.get("settings_saved") == "1",
+            image_slots=slot_options(),
         )
 
     @app.get("/archive")
@@ -73,12 +77,13 @@ def create_app() -> Flask:
             batch_size=BATCH_SIZE,
             tool_settings=tool_settings,
             archive_view=True,
+            settings_saved=False,
+            image_slots=slot_options(),
         )
 
     @app.get("/settings")
-    def settings_page() -> str:
-        tool_settings = load_tool_settings(tool_settings_path(settings.output_dir))
-        return render_template("settings.html", settings=tool_settings.masked(), saved=False)
+    def settings_page() -> Response:
+        return redirect(url_for("index"))
 
     @app.post("/settings")
     def save_settings() -> str:
@@ -102,7 +107,7 @@ def create_app() -> Flask:
         if next_settings.image_provider not in {"local", "openai"}:
             next_settings = replace_setting(next_settings, image_provider="local")
         save_tool_settings(path, next_settings)
-        return render_template("settings.html", settings=next_settings.masked(), saved=True)
+        return redirect(url_for("index", settings_saved=1))
 
     @app.post("/generate")
     def generate_batch() -> Response:
@@ -200,6 +205,8 @@ def create_app() -> Flask:
             "copyright_policy": "文章正文只允许本地原创生成图片，上传后只允许微信素材域名图片。",
         }
         _write_metadata(settings, parsed, metadata)
+        if request.form.get("return_to") == "index":
+            return redirect(url_for("index"))
         return redirect(url_for("preview", publish_date=publish_date))
 
     @app.post("/preview/<publish_date>/images/remove")
@@ -230,6 +237,8 @@ def create_app() -> Flask:
             "copyright_policy": "文章正文只允许本地原创生成图片，上传后只允许微信素材域名图片。",
         }
         _write_metadata(settings, parsed, metadata)
+        if request.form.get("return_to") == "index":
+            return redirect(url_for("index"))
         return redirect(url_for("preview", publish_date=publish_date))
 
     @app.post("/drafts/action")
@@ -393,7 +402,16 @@ def _preview_item(settings: Settings, publish_date: str, *, archived: bool = Fal
         archived=archived,
         focus_keyword=str(metadata.get("trend_focus_keyword") or "") or None,
         focus_count=_focus_count(metadata),
+        manual_images=manual_images_from_metadata(metadata),
+        image_workbench=_workbench_from_metadata(metadata, settings),
     )
+
+
+def _workbench_from_metadata(metadata: dict[str, Any], settings: Settings) -> dict[str, Any]:
+    workbench = metadata.get("image_prompt_workbench")
+    if isinstance(workbench, dict):
+        return workbench
+    return build_workbench_from_metadata(metadata, brand_name=settings.brand_name)
 
 
 def _focus_count(metadata: dict[str, Any]) -> int | None:
