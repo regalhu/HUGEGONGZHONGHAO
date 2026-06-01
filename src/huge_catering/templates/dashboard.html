@@ -5,47 +5,215 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>胡哥说餐饮 - 主页面</title>
   <style>
-    body { margin: 0; font-family: "Microsoft YaHei", Arial, sans-serif; background: #f6f3ee; color: #20252d; }
-    header { padding: 24px 32px; background: #20252d; color: #fff; }
-    header a { color: #fff; text-decoration: none; font-weight: 700; margin-right: 18px; }
-    main { max-width: 1180px; margin: 0 auto; padding: 28px; }
-    .toolbar { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; margin-bottom: 24px; }
-    label { display: grid; gap: 6px; font-size: 14px; color: #555; }
-    input, select, textarea { border: 1px solid #d8d1c5; border-radius: 6px; background: #fff; box-sizing: border-box; font: inherit; }
-    input, select { height: 38px; padding: 0 10px; }
-    textarea { min-height: 82px; padding: 10px; line-height: 1.6; resize: vertical; }
-    button, .button { height: 40px; padding: 0 16px; border: 0; border-radius: 6px; background: #b42318; color: #fff; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
-    button.secondary, .button.secondary { background: #20252d; }
-    .notice { padding: 12px 14px; background: #fff7ed; border-left: 4px solid #c78b2f; margin-bottom: 18px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
-    .card { background: #fff; border: 1px solid #e4ded4; border-radius: 8px; padding: 16px; }
-    .title { font-size: 17px; font-weight: 800; line-height: 1.5; margin-bottom: 8px; }
-    .meta { color: #666; font-size: 13px; line-height: 1.7; }
-    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
-    .chip { background: #f1eee8; color: #4a4137; padding: 3px 8px; border-radius: 999px; font-size: 12px; }
-    .actions { display: flex; gap: 8px; margin-top: 14px; }
-    .uploaded { color: #16794c; font-weight: 700; }
-    .danger { background: #7f1d1d; }
-    .select-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
-    .select-row input { width:18px; height:18px; }
-    .panel { background:#fff; border:1px solid #e4ded4; border-radius:8px; padding:18px; margin-bottom:18px; }
-    .settings-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:14px; }
-    .image-slots { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:12px; }
-    .slot-box { border:1px solid #e4ded4; border-radius:8px; padding:10px; background:#fffdf9; }
-    .slot-box img { max-width:100%; height:auto; border-radius:6px; border:1px solid #e4ded4; margin:8px 0; }
-    details { margin-top:12px; }
-    summary { cursor:pointer; font-weight:800; color:#20252d; }
-    .prompt-card { border:1px solid #e4ded4; border-radius:8px; padding:10px; margin-top:10px; background:#fbfaf7; }
-    textarea.prompt-copy { width:100%; min-height:120px; margin-top:8px; color:#374151; }
-    @media (max-width: 760px) { .settings-grid, .image-slots { grid-template-columns: 1fr; } main { padding:18px; } }
+    :root {
+      color-scheme: light;
+      --bg: #f5f5f7;
+      --surface: rgba(255, 255, 255, 0.86);
+      --surface-solid: #ffffff;
+      --line: rgba(0, 0, 0, 0.08);
+      --text: #1d1d1f;
+      --muted: #6e6e73;
+      --blue: #0071e3;
+      --blue-dark: #005bb5;
+      --red: #d70015;
+      --green: #248a3d;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Microsoft YaHei", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 18% -10%, rgba(0,113,227,0.12), transparent 30%),
+        radial-gradient(circle at 88% 8%, rgba(52,199,89,0.10), transparent 24%),
+        var(--bg);
+      color: var(--text);
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: saturate(180%) blur(22px);
+      background: rgba(245, 245, 247, 0.78);
+      border-bottom: 1px solid var(--line);
+    }
+    .nav {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+    .brand h1 { margin: 0; font-size: 28px; letter-spacing: 0; }
+    .brand p { margin: 5px 0 0; color: var(--muted); font-size: 14px; }
+    .nav-links { display: flex; gap: 10px; align-items: center; }
+    .nav-links a {
+      color: var(--text);
+      text-decoration: none;
+      font-size: 14px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid var(--line);
+    }
+    main { max-width: 1220px; margin: 0 auto; padding: 28px; }
+    .notice {
+      padding: 13px 15px;
+      background: rgba(255, 255, 255, 0.86);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      margin-bottom: 16px;
+      color: var(--muted);
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 22px;
+      margin-bottom: 18px;
+    }
+    .panel-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    h2 { margin: 0; font-size: 21px; letter-spacing: 0; }
+    .subtle { color: var(--muted); font-size: 13px; line-height: 1.6; }
+    label { display: grid; gap: 7px; color: var(--muted); font-size: 13px; }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.94);
+      color: var(--text);
+      font: inherit;
+      outline: none;
+    }
+    input, select { height: 42px; padding: 0 12px; }
+    textarea { min-height: 86px; padding: 11px 12px; line-height: 1.6; resize: vertical; }
+    input:focus, select:focus, textarea:focus {
+      border-color: rgba(0, 113, 227, 0.55);
+      box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
+    }
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: end;
+      flex-wrap: wrap;
+    }
+    .toolbar label { min-width: 180px; }
+    button, .button {
+      height: 42px;
+      padding: 0 16px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--blue);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
+    button:hover, .button:hover { background: var(--blue-dark); }
+    button.secondary, .button.secondary {
+      background: rgba(255,255,255,0.9);
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+    button.secondary:hover, .button.secondary:hover { background: #fff; }
+    button.danger, .button.danger { background: var(--red); }
+    .manage-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 20px 0 14px;
+      flex-wrap: wrap;
+    }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      background: var(--surface-solid);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      min-height: 230px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.05);
+    }
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .card input[type="checkbox"] { width: 18px; height: 18px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: #f5f5f7;
+      color: var(--muted);
+      font-size: 12px;
+      border: 1px solid var(--line);
+    }
+    .badge.uploaded { color: var(--green); background: rgba(52,199,89,0.10); }
+    .title { font-size: 17px; font-weight: 800; line-height: 1.45; margin-bottom: 10px; }
+    .meta { color: var(--muted); font-size: 13px; line-height: 1.7; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+    .chip {
+      background: #f5f5f7;
+      color: #424245;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid var(--line);
+    }
+    .card .actions { margin-top: auto; padding-top: 12px; }
+    .empty { grid-column: 1 / -1; }
+    @media (max-width: 760px) {
+      .nav { align-items: flex-start; flex-direction: column; padding: 16px 18px; }
+      main { padding: 18px; }
+      .settings-grid { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+      .panel-head { align-items: flex-start; flex-direction: column; }
+    }
   </style>
 </head>
 <body>
   <header>
-    <a href="{{ url_for('index') }}">主页面</a>
-    <a href="{{ url_for('archive') }}">归档列表</a>
-    <h1>{{ "归档草稿" if archive_view else "主页面" }}</h1>
-    <div style="color:#f4d6bd;font-size:14px;">标题风格：{{ tool_settings.title_style }} · 图片模式：manual_chatgpt</div>
+    <div class="nav">
+      <div class="brand">
+        <h1>{{ "归档草稿" if archive_view else "主页面" }}</h1>
+        <p>{{ "查看已归档的本地草稿" if archive_view else "文章生成、草稿管理和公众号上传" }}</p>
+      </div>
+      <nav class="nav-links">
+        <a href="{{ url_for('index') }}">主页面</a>
+        <a href="{{ url_for('archive') }}">归档列表</a>
+      </nav>
+    </div>
   </header>
   <main>
     {% if not has_wechat %}
@@ -57,7 +225,13 @@
 
     {% if not archive_view %}
       <section class="panel">
-        <h2>生成设置</h2>
+        <div class="panel-head">
+          <div>
+            <h2>生成设置</h2>
+            <div class="subtle">调整文章角度、标题格式和封面风格。每篇公众号文章固定一张封面图。</div>
+          </div>
+          <div class="subtle">标题风格：{{ tool_settings.title_style }}</div>
+        </div>
         <form method="post" action="{{ url_for('save_settings') }}">
           <div class="settings-grid">
             <label>标题风格
@@ -78,7 +252,7 @@
           <div class="settings-grid" style="margin-top:14px;">
             <label>图片生成方式
               <select name="image_provider">
-                <option value="local" {% if tool_settings.image_provider == "local" %}selected{% endif %}>本地漫画图</option>
+                <option value="local" {% if tool_settings.image_provider == "local" %}selected{% endif %}>本地封面图</option>
                 <option value="openai" {% if tool_settings.image_provider == "openai" %}selected{% endif %}>OpenAI 图片生成</option>
               </select>
             </label>
@@ -109,142 +283,117 @@
           <label style="margin-top:14px;">图片风格
             <textarea name="image_style_prompt">{{ tool_settings.image_style_prompt }}</textarea>
           </label>
-          <p class="meta">图片工具采用低成本人工协作模式：主页面生成封面图提示词，图片复制到 ChatGPT Plus 生成后，再替换每篇草稿的封面图。公众号正文不再插入图片。</p>
-          <button type="submit">保存设置</button>
+          <div class="actions" style="margin-top:16px;">
+            <button type="submit">保存设置</button>
+          </div>
         </form>
       </section>
 
-      <form class="toolbar" method="post" action="{{ url_for('generate_batch') }}">
-        <label>起始日期
-          <input type="date" name="start_date" value="{{ today }}">
-        </label>
-        <label>生成篇数
-          <input type="number" name="count" min="1" max="10" value="{{ batch_size }}">
-        </label>
-        <button type="submit">生成10篇预览</button>
-      </form>
-    {% endif %}
-
-    {% if items and not archive_view %}
-      <form method="post" action="{{ url_for('upload_batch') }}">
-        {% for item in items %}
-          <input type="hidden" name="dates" value="{{ item.publish_date }}">
-        {% endfor %}
-        <button class="secondary" type="submit">上传本批次到公众号草稿箱</button>
-      </form>
-    {% endif %}
-
-    {% if items %}
-      <form id="manage-form" class="toolbar" method="post" action="{{ url_for('drafts_action') }}" style="margin-top:18px;">
-        {% if archive_view %}
-          <input type="hidden" name="archive_view" value="1">
-          <button class="secondary" type="submit" name="action" value="delete_archive_selected">删除选中</button>
-          <button class="danger" type="submit" name="action" value="delete_archive_all">全部删除</button>
-        {% else %}
-          <button class="secondary" type="submit" name="action" value="archive_selected">归档选中</button>
-          <button class="danger" type="submit" name="action" value="delete_selected">删除选中</button>
-          <button class="secondary" type="submit" name="action" value="archive_all">全部归档</button>
-          <button class="danger" type="submit" name="action" value="delete_all">全部删除</button>
-        {% endif %}
-      </form>
-    {% endif %}
-
-    <section class="grid" style="margin-top:18px;">
-      {% for item in items %}
-        <article class="card">
-          <div class="select-row">
-            <input form="manage-form" type="checkbox" name="dates" value="{{ item.publish_date }}" aria-label="选择 {{ item.title }}">
-            <span class="meta">{{ "已归档" if archive_view else "当前草稿" }}</span>
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>生成草稿</h2>
+            <div class="subtle">按起始日期生成最多 10 篇预览稿。</div>
           </div>
-          <div class="title">{{ item.title }}</div>
-          <div class="meta">{{ item.publish_date }} · {{ item.topic_name }}</div>
-          {% if item.focus_keyword %}
-            <div class="meta">热点词：{{ item.focus_keyword }}{% if item.focus_count %} · 引用约 {{ item.focus_count }} 次{% endif %}</div>
-          {% endif %}
-          <div class="chips">
-            {% for keyword in item.keywords[:5] %}
-              <span class="chip">{{ keyword }}</span>
+        </div>
+        <form class="toolbar" method="post" action="{{ url_for('generate_batch') }}">
+          <label>起始日期
+            <input type="date" name="start_date" value="{{ today }}">
+          </label>
+          <label>生成篇数
+            <input type="number" name="count" min="1" max="10" value="{{ batch_size }}">
+          </label>
+          <button type="submit">生成10篇预览</button>
+        </form>
+      </section>
+    {% endif %}
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>{{ "归档列表" if archive_view else "当前草稿" }}</h2>
+          <div class="subtle">{{ "这些是已归档的本地草稿。" if archive_view else "预览、上传、归档或删除本批次草稿。" }}</div>
+        </div>
+        {% if items and not archive_view %}
+          <form method="post" action="{{ url_for('upload_batch') }}">
+            {% for item in items %}
+              <input type="hidden" name="dates" value="{{ item.publish_date }}">
             {% endfor %}
-          </div>
-          {% if item.draft_media_id %}
-            <div class="uploaded">已上传：{{ item.draft_media_id }}</div>
-          {% else %}
-            <div class="meta">未上传公众号草稿箱</div>
-          {% endif %}
-          <div class="actions">
-            <a class="button secondary" href="{{ url_for('preview', publish_date=item.publish_date, archived=1 if archive_view else 0) }}">预览</a>
+            <button type="submit">上传本批次</button>
+          </form>
+        {% endif %}
+      </div>
+
+      {% if items %}
+        <div class="manage-row">
+          <form id="manage-form" class="actions" method="post" action="{{ url_for('drafts_action') }}">
             {% if archive_view %}
-              <form method="post" action="{{ url_for('drafts_action') }}">
-                <input type="hidden" name="archive_view" value="1">
-                <input type="hidden" name="dates" value="{{ item.publish_date }}">
-                <button class="danger" type="submit" name="action" value="delete_archive_selected">删除</button>
-              </form>
+              <input type="hidden" name="archive_view" value="1">
+              <button class="secondary" type="submit" name="action" value="delete_archive_selected">删除选中</button>
+              <button class="danger" type="submit" name="action" value="delete_archive_all">全部删除</button>
             {% else %}
-              <form method="post" action="{{ url_for('upload_one', publish_date=item.publish_date) }}">
-                <button type="submit">上传</button>
-              </form>
-              <form method="post" action="{{ url_for('drafts_action') }}">
-                <input type="hidden" name="dates" value="{{ item.publish_date }}">
-                <button class="secondary" type="submit" name="action" value="archive_selected">归档</button>
-              </form>
-              <form method="post" action="{{ url_for('drafts_action') }}">
-                <input type="hidden" name="dates" value="{{ item.publish_date }}">
-                <button class="danger" type="submit" name="action" value="delete_selected">删除</button>
-              </form>
+              <button class="secondary" type="submit" name="action" value="archive_selected">归档选中</button>
+              <button class="danger" type="submit" name="action" value="delete_selected">删除选中</button>
+              <button class="secondary" type="submit" name="action" value="archive_all">全部归档</button>
+              <button class="danger" type="submit" name="action" value="delete_all">全部删除</button>
             {% endif %}
-          </div>
-          <details>
-            <summary>图片工具</summary>
-            <p class="meta">每篇公众号文章固定 1 张封面图。复制提示词到 ChatGPT Plus 生成封面后，在这里替换封面图即可。</p>
-            <div class="actions">
-              <a class="button" href="{{ item.image_workbench.chatgptUrl if item.image_workbench else 'https://chatgpt.com/' }}" target="_blank" rel="noopener">打开 ChatGPT 图片生成</a>
+          </form>
+          <div class="subtle">共 {{ items|length }} 篇</div>
+        </div>
+      {% endif %}
+
+      <section class="grid">
+        {% for item in items %}
+          <article class="card">
+            <div class="card-top">
+              <input form="manage-form" type="checkbox" name="dates" value="{{ item.publish_date }}" aria-label="选择 {{ item.title }}">
+              {% if item.draft_media_id %}
+                <span class="badge uploaded">已上传</span>
+              {% else %}
+                <span class="badge">{{ "已归档" if archive_view else "未上传" }}</span>
+              {% endif %}
             </div>
-            <div class="slot-box">
-              <div class="title" style="font-size:14px;">公众号封面图 · 2.35:1</div>
-              <img src="{{ url_for('outputs', filename=('_archive/' if archive_view else '') ~ item.publish_date ~ '/cover.jpg') }}" alt="封面图">
-              {% if not archive_view %}
-                <form method="post" action="{{ url_for('upload_cover_image', publish_date=item.publish_date) }}" enctype="multipart/form-data">
-                  <input type="hidden" name="return_to" value="index">
-                  <input type="file" name="image" accept="image/*" required>
-                  <button class="secondary" type="submit">替换封面图</button>
+            <div class="title">{{ item.title }}</div>
+            <div class="meta">{{ item.publish_date }} · {{ item.topic_name }}</div>
+            {% if item.focus_keyword %}
+              <div class="meta">热点词：{{ item.focus_keyword }}{% if item.focus_count %} · 引用约 {{ item.focus_count }} 次{% endif %}</div>
+            {% endif %}
+            <div class="chips">
+              {% for keyword in item.keywords[:5] %}
+                <span class="chip">{{ keyword }}</span>
+              {% endfor %}
+            </div>
+            {% if item.draft_media_id %}
+              <div class="meta">media_id：{{ item.draft_media_id }}</div>
+            {% endif %}
+            <div class="actions">
+              <a class="button secondary" href="{{ url_for('preview', publish_date=item.publish_date, archived=1 if archive_view else 0) }}">预览</a>
+              {% if archive_view %}
+                <form method="post" action="{{ url_for('drafts_action') }}">
+                  <input type="hidden" name="archive_view" value="1">
+                  <input type="hidden" name="dates" value="{{ item.publish_date }}">
+                  <button class="danger" type="submit" name="action" value="delete_archive_selected">删除</button>
+                </form>
+              {% else %}
+                <form method="post" action="{{ url_for('upload_one', publish_date=item.publish_date) }}">
+                  <button type="submit">上传</button>
+                </form>
+                <form method="post" action="{{ url_for('drafts_action') }}">
+                  <input type="hidden" name="dates" value="{{ item.publish_date }}">
+                  <button class="secondary" type="submit" name="action" value="archive_selected">归档</button>
+                </form>
+                <form method="post" action="{{ url_for('drafts_action') }}">
+                  <input type="hidden" name="dates" value="{{ item.publish_date }}">
+                  <button class="danger" type="submit" name="action" value="delete_selected">删除</button>
                 </form>
               {% endif %}
             </div>
-            {% if item.image_workbench %}
-              <details>
-                <summary>图片生成提示词</summary>
-                {% for group in item.image_workbench.groups %}
-                  <div class="prompt-card">
-                    <div class="title" style="font-size:15px;">{{ group.purpose }} · {{ group.aspect_ratio }}</div>
-                    <button type="button" class="copy-button" data-target="main-prompt-{{ item.publish_date }}-{{ loop.index }}">复制提示词</button>
-                    <textarea id="main-prompt-{{ item.publish_date }}-{{ loop.index }}" class="prompt-copy" readonly>{{ group.copy_text }}</textarea>
-                  </div>
-                {% endfor %}
-              </details>
-            {% endif %}
-          </details>
-        </article>
-      {% else %}
-        <div class="notice">{{ "归档里还没有草稿。" if archive_view else "还没有预览稿。点击上方按钮生成 10 篇。" }}</div>
-      {% endfor %}
+          </article>
+        {% else %}
+          <div class="notice empty">{{ "归档里还没有草稿。" if archive_view else "还没有预览稿。点击上方按钮生成 10 篇。" }}</div>
+        {% endfor %}
+      </section>
     </section>
   </main>
-  <script>
-    document.querySelectorAll(".copy-button").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const target = document.getElementById(button.dataset.target);
-        if (!target) return;
-        target.select();
-        target.setSelectionRange(0, target.value.length);
-        try {
-          await navigator.clipboard.writeText(target.value);
-        } catch (error) {
-          document.execCommand("copy");
-        }
-        button.textContent = "已复制";
-        window.setTimeout(() => { button.textContent = "复制提示词"; }, 1400);
-      });
-    });
-  </script>
 </body>
 </html>
