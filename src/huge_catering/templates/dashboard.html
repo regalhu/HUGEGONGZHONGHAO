@@ -228,7 +228,7 @@
         <div class="panel-head">
           <div>
             <h2>生成设置</h2>
-            <div class="subtle">调整文章角度、标题格式和封面风格。每篇公众号文章固定一张封面图。</div>
+            <div class="subtle">调整文章角度、标题格式和关键词策略。</div>
           </div>
           <div class="subtle">标题风格：{{ tool_settings.title_style }}</div>
         </div>
@@ -248,40 +248,6 @@
           </div>
           <label style="margin-top:14px;">文章生成机制/角度
             <textarea name="article_angle">{{ tool_settings.article_angle }}</textarea>
-          </label>
-          <div class="settings-grid" style="margin-top:14px;">
-            <label>图片生成方式
-              <select name="image_provider">
-                <option value="local" {% if tool_settings.image_provider == "local" %}selected{% endif %}>本地封面图</option>
-                <option value="openai" {% if tool_settings.image_provider == "openai" %}selected{% endif %}>OpenAI 图片生成</option>
-              </select>
-            </label>
-            <label>OpenAI API Key
-              <input type="password" name="openai_api_key" value="{{ tool_settings.masked().openai_api_key }}" autocomplete="off" placeholder="sk-...">
-            </label>
-            <label>图片模型
-              <input name="openai_image_model" value="{{ tool_settings.openai_image_model }}">
-            </label>
-            <label>图片尺寸
-              <select name="openai_image_size">
-                <option value="1024x1024" {% if tool_settings.openai_image_size == "1024x1024" %}selected{% endif %}>1024x1024</option>
-                <option value="1024x1536" {% if tool_settings.openai_image_size == "1024x1536" %}selected{% endif %}>1024x1536</option>
-                <option value="1536x1024" {% if tool_settings.openai_image_size == "1536x1024" %}selected{% endif %}>1536x1024</option>
-              </select>
-            </label>
-            <label>图片质量
-              <select name="openai_image_quality">
-                <option value="low" {% if tool_settings.openai_image_quality == "low" %}selected{% endif %}>low</option>
-                <option value="medium" {% if tool_settings.openai_image_quality == "medium" %}selected{% endif %}>medium</option>
-                <option value="high" {% if tool_settings.openai_image_quality == "high" %}selected{% endif %}>high</option>
-              </select>
-            </label>
-          </div>
-          <label style="margin-top:14px;">胡哥形象
-            <textarea name="huge_profile_prompt">{{ tool_settings.huge_profile_prompt }}</textarea>
-          </label>
-          <label style="margin-top:14px;">图片风格
-            <textarea name="image_style_prompt">{{ tool_settings.image_style_prompt }}</textarea>
           </label>
           <div class="actions" style="margin-top:16px;">
             <button type="submit">保存设置</button>

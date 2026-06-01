@@ -119,11 +119,9 @@ powershell.exe -ExecutionPolicy Bypass -File "C:\Users\regal\Documents\胡哥说
 
 打开网页后台后，在主页面顶部直接配置：
 
-- 文章设定：可以选择标题风格，填写生成角度，也可以手动覆盖关键词。
-- 配图设定：默认使用本地漫画图；如果选择 OpenAI 图片生成，需要填写 `OPENAI_API_KEY`。
-- 胡哥形象和图片风格：会一起写入图片提示词，用于生成更贴合文章内容的漫画风格配图。
-
-这里的 OpenAI 连接方式是 API Key，不是模拟登录 ChatGPT 网页账号。API Key 只保存在本机 `data/tool_settings.json` 或 `.env`，不会上传到 GitHub。若 OpenAI 图片生成失败，程序会自动回退到本地漫画图，避免整批草稿中断。
+- 标题风格
+- 关键词覆盖
+- 文章生成机制/角度
 
 ## 上传公众号草稿
 

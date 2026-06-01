@@ -18,7 +18,7 @@ from .image_checks import ensure_article_images
 from .pipeline import build_daily_article
 from .image_prompt_workbench import build_workbench_from_metadata
 from .render import render_article_html
-from .tool_settings import ToolSettings, load_tool_settings, replace_setting, save_tool_settings, tool_settings_path
+from .tool_settings import ToolSettings, load_tool_settings, save_tool_settings, tool_settings_path
 from .trends import load_or_fetch_trends
 from .wechat import WeChatClient
 
@@ -89,23 +89,18 @@ def create_app() -> Flask:
     def save_settings() -> str:
         path = tool_settings_path(settings.output_dir)
         existing = load_tool_settings(path)
-        api_key = str(request.form.get("openai_api_key") or "").strip()
-        if not api_key or api_key == "已保存，不在页面显示":
-            api_key = existing.openai_api_key
         next_settings = ToolSettings(
             article_angle=str(request.form.get("article_angle") or "").strip(),
             keyword_override=str(request.form.get("keyword_override") or "").strip(),
             title_style=str(request.form.get("title_style") or "hot_warning").strip(),
-            image_provider=str(request.form.get("image_provider") or "local").strip(),
-            openai_api_key=api_key,
-            openai_image_model=str(request.form.get("openai_image_model") or "gpt-image-1").strip(),
-            openai_image_size=str(request.form.get("openai_image_size") or "1024x1024").strip(),
-            openai_image_quality=str(request.form.get("openai_image_quality") or "low").strip(),
-            huge_profile_prompt=str(request.form.get("huge_profile_prompt") or "").strip(),
-            image_style_prompt=str(request.form.get("image_style_prompt") or "").strip(),
+            image_provider=existing.image_provider,
+            openai_api_key=existing.openai_api_key,
+            openai_image_model=existing.openai_image_model,
+            openai_image_size=existing.openai_image_size,
+            openai_image_quality=existing.openai_image_quality,
+            huge_profile_prompt=existing.huge_profile_prompt,
+            image_style_prompt=existing.image_style_prompt,
         )
-        if next_settings.image_provider not in {"local", "openai"}:
-            next_settings = replace_setting(next_settings, image_provider="local")
         save_tool_settings(path, next_settings)
         return redirect(url_for("index", settings_saved=1))
 
