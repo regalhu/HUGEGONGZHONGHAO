@@ -1,0 +1,16 @@
+[Unit]
+Description=Huge Catering WeChat Article Generator
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/huge-catering
+Environment=PYTHONPATH=/opt/huge-catering/src
+ExecStart=/opt/huge-catering/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8766 huge_catering.wsgi:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

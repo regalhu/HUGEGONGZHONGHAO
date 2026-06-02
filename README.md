@@ -205,7 +205,35 @@ http://127.0.0.1:8766
 UPLOAD_TO_GITHUB.md
 ```
 
-如果未来要真正放到公网运行，再部署到 Render、Railway、Fly.io 或云服务器。
+## 天翼云服务器部署
+
+项目已准备 Ubuntu 服务器部署文件：
+
+```text
+deploy/tianyi/
+```
+
+服务器推荐使用 `Ubuntu 22.04/24.04`，安全组开放 `80` 端口。登录服务器后执行：
+
+```bash
+git clone https://github.com/regalhu/HUGEGONGZHONGHAO.git /opt/huge-catering
+cd /opt/huge-catering
+sudo bash deploy/tianyi/deploy_ubuntu.sh
+sudo nano /opt/huge-catering/.env
+sudo systemctl restart huge-catering
+```
+
+访问：
+
+```text
+http://你的服务器IP/
+```
+
+更详细步骤见：
+
+```text
+deploy/tianyi/README.md
+```
 
 部署平台需要配置环境变量：
 
@@ -218,14 +246,13 @@ AUTHOR_NAME=胡哥
 OUTPUT_DIR=outputs
 TOPIC_LIBRARY=data/topic_library.json
 START_ISSUE_NUMBER=229
-ENABLE_TREND_CONTENT=true
-OPENAI_API_KEY=当前版本不需要
+ENABLE_TREND_CONTENT=false
 ```
 
 部署启动命令：
 
 ```bash
-python -m huge_catering.webapp --host 0.0.0.0 --port $PORT
+gunicorn --workers 2 --bind 127.0.0.1:8766 huge_catering.wsgi:app
 ```
 
 ## 项目结构
