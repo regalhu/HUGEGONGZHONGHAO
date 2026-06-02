@@ -9,6 +9,7 @@ from typing import Any
 
 from .history import HistoryEntry, recently_used_topic_ids, used_topic_for_date
 from .models import Advice, Article
+from .topic_planner import TopicPlan
 from .trends import TrendSnapshot, title_base_from_trends, trend_topic_id
 
 
@@ -23,6 +24,10 @@ class Topic:
     trend_keywords: list[str] | None = None
     trend_summary: str = ""
     trend_sources: list[str] | None = None
+    planned_topic: str = ""
+    planned_angle: str = ""
+    avoid_repeat_point: str = ""
+    target_reader: str = ""
 
 
 def load_topics(path: Path) -> list[Topic]:
@@ -50,6 +55,10 @@ def load_topics(path: Path) -> list[Topic]:
                 trend_sources=[str(source) for source in item.get("trend_sources", [])]
                 if isinstance(item.get("trend_sources"), list)
                 else None,
+                planned_topic=str(item.get("planned_topic", "")),
+                planned_angle=str(item.get("planned_angle", "")),
+                avoid_repeat_point=str(item.get("avoid_repeat_point", "")),
+                target_reader=str(item.get("target_reader", "")),
             )
         )
     if not topics:
@@ -134,6 +143,44 @@ def generate_article(
         trend_summary=topic.trend_summary,
         trend_sources=topic.trend_sources or [],
         tags=["餐饮经营", topic.name, "老板复盘"],
+    )
+
+
+def topic_from_plan(plan: TopicPlan, *, article_type: str, issue_number: int) -> Topic:
+    keyword = plan.keyword or plan.topic
+    topic_id = "plan_" + "".join(ch for ch in plan.topic.lower() if ch.isalnum())[:28]
+    if not topic_id or topic_id == "plan_":
+        topic_id = f"plan_{issue_number}"
+    if article_type == "methodology":
+        title = _methodology_title_from_plan(plan)
+        digest = f"围绕{plan.topic}，给餐饮老板一套能落地的3步方法和检查清单。"
+        intro = f"开店最怕问题天天见，动作却天天散。今天就拿{plan.topic}这个痛点，从{plan.angle}拆一套能马上执行的方法。"
+        advices = _methodology_sections_for_plan(plan)
+    elif article_type == "hot_interpretation":
+        title = _hot_title_from_plan(plan)
+        digest = f"从{keyword}切入，重点拆{plan.angle}里的客流、客单、毛利、复购和风险。"
+        intro = f"最近{keyword}又被聊起来了。热闹归热闹，餐饮老板更该问一句：它会不会影响我店里的钱？这一篇只看{plan.angle}。"
+        advices = _hot_sections_for_plan(plan)
+    else:
+        title = f"餐饮要赚钱 听我10句劝｜第{issue_number}期"
+        digest = f"本期围绕{plan.topic}，给餐饮老板10句短、狠、能执行的劝。"
+        intro = f"本期主题：{plan.topic}。同样是餐饮赚钱，这一篇只聊{plan.angle}，不泛泛讲大道理。"
+        advices = _ten_lessons_advices_for_plan(plan)
+
+    return Topic(
+        id=topic_id,
+        name=plan.topic,
+        title=title,
+        digest=digest,
+        intro=intro,
+        advices=advices,
+        trend_keywords=[item for item in [keyword, plan.topic, plan.angle] if item],
+        trend_summary=f"本篇按批量选题规划生成：{plan.topic}，写作角度：{plan.angle}。",
+        trend_sources=["本地选题规划器", "近5天餐饮关键词结果", "内置餐饮经营主题库"],
+        planned_topic=plan.topic,
+        planned_angle=plan.angle,
+        avoid_repeat_point=plan.avoid_repeat_point,
+        target_reader=plan.target_reader,
     )
 
 
@@ -278,7 +325,98 @@ def _methodology_sections(*, primary: str, secondary: str, tertiary: str) -> lis
     ]
 
 
+def _hot_title_from_plan(plan: TopicPlan) -> str:
+    keyword = plan.keyword or plan.topic
+    if "客流" in plan.angle:
+        return f"{keyword}抢客流？餐饮店先别慌，今天改这3个入口"
+    if "毛利" in plan.angle:
+        return f"{keyword}越打越热，小店毛利别被打穿"
+    if "客单" in plan.angle:
+        return f"{keyword}把价格带搅乱了？餐饮老板先稳住客单价"
+    if "体验" in plan.angle:
+        return f"{keyword}不只卷价格，堂食体验才是小店的后手"
+    if "复购" in plan.angle:
+        return f"{keyword}热闹过去后，餐饮店靠什么把顾客留下？"
+    if "决策" in plan.angle:
+        return f"{keyword}看着像机会，其实小店最怕卷进价格战"
+    return f"{keyword}又热了，餐饮老板要从{plan.angle}先算账"
+
+
+def _methodology_title_from_plan(plan: TopicPlan) -> str:
+    topic = plan.topic.replace("怎么办", "")
+    if "菜单" in topic:
+        return f"{topic}？先用这3步把利润拉回来"
+    if "毛利" in topic or "不赚钱" in topic:
+        return f"{topic}？餐饮老板先查这4个漏点"
+    if "复购" in topic or "顾客" in topic:
+        return f"{topic}？别急着打折，先把复购动作做实"
+    if "员工" in topic or "执行" in topic:
+        return f"{topic}？先把标准拆成每天能检查的动作"
+    if "客单" in topic:
+        return f"{topic}？小店先从套餐和加购下手"
+    return f"{topic}？餐饮老板先用这套方法落地"
+
+
+def _ten_lessons_advices_for_plan(plan: TopicPlan) -> list[Advice]:
+    theme = plan.topic.replace("10句劝", "")
+    angle = plan.angle
+    rows = [
+        ("先算账，再上手", f"{theme}不是凭感觉做。先把销量、毛利、人工和损耗摊开，账清楚了，动作才不会乱。"),
+        ("少一点口号，多一张表", f"{angle}最怕喊得响、没人做。今天就做一张检查表，谁负责、几点查、查什么，全写清楚。"),
+        ("主动作只留一个", f"别一口气改十件事。围绕{theme}先抓一个最赚钱或最漏钱的动作，小店改得少，反而见效快。"),
+        ("员工能复述，才算标准", f"老板懂不算懂，员工会说会做才算数。把{theme}拆成一句话术和一个动作，班前会就能讲。"),
+        ("顾客看得见，钱才回得来", f"再好的调整，顾客看不见也白搭。把{theme}变成菜单推荐、服务提醒或门店细节，让顾客有感知。"),
+        ("别靠打折遮问题", f"打折能来人，也能吃利润。{theme}要先查体验、出品和复购理由，别把优惠当万能胶。"),
+        ("每天复盘三个数", f"围绕{angle}，每天只盯三个数：客流、毛利、复购。数变了，说明动作有效；数不变，就别自我感动。"),
+        ("先试小范围，再全店推", f"新动作先用一天、一个班次、一组员工试。小范围跑通了，再放大，别拿整家店冒险。"),
+        ("老板少救火，多定规则", f"{theme}反复出问题，多半不是人不行，是规则不清。把问题写进流程，明天就少一次救火。"),
+        ("活得久，才有钱赚", f"餐饮赚钱不是一锤子买卖。把{theme}做稳，少亏一点、多留一点，店才有后劲。"),
+    ]
+    return [Advice(index=index, title=title, body=body) for index, (title, body) in enumerate(rows, start=1)]
+
+
+def _hot_sections_for_plan(plan: TopicPlan) -> list[Advice]:
+    keyword = plan.keyword or plan.topic
+    action_map = {
+        "客流角度": "第一，检查进店入口：团购、外卖、门头、朋友圈，哪个能带真实到店。第二，把主推菜放到最显眼的位置。第三，班后复盘新增顾客从哪里来。",
+        "毛利角度": "第一，标出低毛利菜和高毛利菜。第二，把套餐从单纯便宜改成高毛利组合。第三，每天看退款、赠品和损耗，别让热闹吃掉利润。",
+        "客单价角度": "第一，设计一个不贵但能加购的小菜或饮品。第二，把套餐分成基础、推荐、升级三档。第三，让员工只推一句最容易成交的话术。",
+        "用户体验角度": "第一，查排队、等餐、上菜、收银四个卡点。第二，减少顾客选择成本。第三，把堂食顾客能感受到的细节做稳定。",
+        "复购角度": "第一，给老客一个再次到店的具体理由。第二，建立会员标签，别只群发优惠。第三，复盘7天内二次消费人数。",
+    }
+    actions = action_map.get(plan.angle, "第一，查一个最影响收入的环节。第二，写一张员工执行清单。第三，当天复盘数据，别凭感觉判断。")
+    return [
+        Advice(1, "这个热点为什么和餐饮老板有关", f"{keyword}表面是流量话题，背后是顾客选择标准在变化。本篇只看{plan.angle}，避免和其他草稿重复写泛泛的客流、毛利、复购。"),
+        Advice(2, "它影响哪几笔钱", f"先拆五笔账：客流能不能进来，客单会不会被压低，毛利会不会变薄，复购能不能留下，风险会不会放大。{plan.topic}最关键的是别把热闹误判成利润。"),
+        Advice(3, "门店今天能做的3个动作", actions),
+        Advice(4, "胡哥总结", f"{keyword}会过去，但{plan.angle}里的问题会留下。餐饮老板今天先改一个动作、看一个数字、定一个标准，比跟着喊热闹更值钱。"),
+    ]
+
+
+def _methodology_sections_for_plan(plan: TopicPlan) -> list[Advice]:
+    problem = plan.topic
+    return [
+        Advice(1, "问题为什么发生", f"{problem}，通常不是老板不努力，而是动作太散。菜单、员工、顾客、数据各管各的，最后就变成忙得很热闹，利润没留下。"),
+        Advice(2, "老板常见误区", f"第一，以为多上新就能解决。第二，以为多打折就能解决。第三，以为员工催一催就能解决。其实{plan.angle}要靠标准和复盘，不靠一时兴奋。"),
+        Advice(3, "可执行方法：至少3步", f"第一步，把问题拆成一个数字，比如客单、毛利、复购或出餐时长。第二步，选一个最小动作先试一天。第三步，写成班前会话术和检查表。第四步，晚上只看结果，不看感觉。"),
+        Advice(4, "检查清单", f"今天就查：有没有负责人，有没有一句话术，有没有数据记录，有没有顾客反馈，有没有第二天继续执行的标准。五项过三项，{problem}就能开始变清楚。"),
+        Advice(5, "胡哥总结", f"方法论不是把文章写漂亮，是让门店明天能少乱一点。围绕{problem}，先做小动作，再看真数据，利润就不会天天失踪。"),
+    ]
+
+
 def _topic_for_article_type(topic: Topic, *, article_type: str, issue_number: int) -> Topic:
+    if topic.planned_angle:
+        return topic_from_plan(
+            TopicPlan(
+                topic=topic.planned_topic or topic.name,
+                angle=topic.planned_angle,
+                target_reader=topic.target_reader,
+                avoid_repeat_point=topic.avoid_repeat_point,
+                keyword=(topic.trend_keywords or [""])[0],
+            ),
+            article_type=article_type,
+            issue_number=issue_number,
+        )
     keywords = topic.trend_keywords or [topic.name, "复购", "门店利润"]
     primary = keywords[0] if keywords else topic.name
     secondary = keywords[1] if len(keywords) > 1 else "复购"

@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from .config import Settings
-from .content import choose_topic, generate_article, topic_from_trends, topics_from_raw
+from .content import choose_topic, generate_article, topic_from_plan, topic_from_trends, topics_from_raw
 from .history import history_path, issue_number_for_date, read_history, record_history
 from .image_checks import ensure_article_images, validate_article_images
 from .image_prompt_workbench import build_workbench_from_article
@@ -14,6 +14,7 @@ from .images import create_cover
 from .quality import check_article_quality
 from .render import render_article_html
 from .topic_factory import ensure_fresh_topic_batch
+from .topic_planner import TopicPlan, build_article_prompt
 from .tool_settings import load_tool_settings, tool_settings_path
 from .trends import TrendSnapshot, load_or_fetch_trends, snapshot_for_keyword
 from .wechat import WeChatClient
@@ -38,6 +39,7 @@ def build_daily_article(
     trend_snapshot: TrendSnapshot | None = None,
     trend_keyword: str | None = None,
     issue_number_override: int | None = None,
+    topic_plan: TopicPlan | None = None,
 ) -> PipelineResult:
     run_dir = settings.output_dir / publish_date.strftime("%Y-%m-%d")
     tool_settings = load_tool_settings(tool_settings_path(settings.output_dir))
@@ -49,8 +51,15 @@ def build_daily_article(
         publish_date,
         start_issue_number=settings.start_issue_number,
     )
-    selected_trend_keyword: str | None = None
-    if settings.enable_trend_content:
+    selected_trend_keyword: str | None = topic_plan.keyword if topic_plan else None
+    generation_prompt = build_article_prompt(article_type=tool_settings.article_type, plan=topic_plan) if topic_plan else ""
+    if topic_plan:
+        topic = topic_from_plan(
+            topic_plan,
+            article_type=tool_settings.article_type,
+            issue_number=issue_number,
+        )
+    elif settings.enable_trend_content:
         try:
             snapshot = trend_snapshot or load_or_fetch_trends(output_dir=settings.output_dir, publish_date=publish_date)
             used_trend_snapshot = snapshot
@@ -158,6 +167,11 @@ def build_daily_article(
                 "trend_keyword_counts": (used_trend_snapshot.keyword_counts if used_trend_snapshot else None) or {},
                 "trend_focus_keyword": selected_trend_keyword,
                 "trend_sources": article.trend_sources or (used_trend_snapshot.source_titles if used_trend_snapshot else [])[:10],
+                "planned_topic": topic_plan.topic if topic_plan else "",
+                "writing_angle": topic_plan.angle if topic_plan else "",
+                "target_reader": topic_plan.target_reader if topic_plan else "",
+                "avoid_repeat_point": topic_plan.avoid_repeat_point if topic_plan else "",
+                "generation_prompt": generation_prompt,
                 "cover_image": str(cover_path),
                 "article_html": str(html_path),
                 "draft_media_id": draft_media_id,

@@ -21,6 +21,7 @@ from .pipeline import build_daily_article
 from .image_prompt_workbench import build_workbench_from_metadata
 from .quality import check_article_quality
 from .render import render_article_html
+from .topic_planner import TopicPlan, topic_planner
 from .tool_settings import ToolSettings, load_tool_settings, save_tool_settings, tool_settings_path
 from .trends import TrendSnapshot, load_or_fetch_trends, trend_cache_path
 from .wechat import WeChatClient
@@ -50,6 +51,9 @@ class PreviewItem:
     copy_markdown: str = ""
     copy_html: str = ""
     quality_ok: bool = True
+    planned_topic: str = ""
+    writing_angle: str = ""
+    body_preview: str = ""
 
 
 def create_app() -> Flask:
@@ -72,6 +76,7 @@ def create_app() -> Flask:
             keyword_results=_recent_keyword_results(settings),
             archive_view=False,
             settings_saved=request.args.get("settings_saved") == "1",
+            generation_error=request.args.get("generation_error") or "",
             image_slots=slot_options(),
         )
 
@@ -90,6 +95,7 @@ def create_app() -> Flask:
             keyword_results=[],
             archive_view=True,
             settings_saved=False,
+            generation_error="",
             image_slots=slot_options(),
         )
 
@@ -105,7 +111,7 @@ def create_app() -> Flask:
             article_type=_clean_article_type(request.form.get("article_type")),
             next_issue_number=str(request.form.get("next_issue_number") or "").strip(),
             article_angle=CORE_GENERATION_LOGIC,
-            keyword_override="",
+            keyword_override=str(request.form.get("keyword_override") or "").strip(),
             image_provider=existing.image_provider,
             openai_api_key=existing.openai_api_key,
             openai_image_model=existing.openai_image_model,
@@ -123,29 +129,61 @@ def create_app() -> Flask:
         count = _clamp_count(request.form.get("count"))
         regenerate = request.form.get("regenerate") == "1"
         tool_settings = load_tool_settings(tool_settings_path(settings.output_dir))
+        input_keyword = (tool_settings.keyword_override or "").strip()
+        if tool_settings.article_type == "hot_interpretation" and not input_keyword:
+            return redirect(url_for("index", generation_error="hot_keyword_required"))
         issue_base = _parse_positive_int(tool_settings.next_issue_number)
+        plans = topic_planner(
+            keyword=input_keyword,
+            article_type=tool_settings.article_type,
+            count=count,
+            seed=int(time.time()) if regenerate else None,
+        )
+        if not plans:
+            return redirect(url_for("index", generation_error="topic_plan_empty"))
         trend_snapshot = None
-        trend_keywords: list[str] = []
         if settings.enable_trend_content and not tool_settings.keyword_list:
             try:
                 trend_snapshot = _recent_trend_snapshot(settings, start_date=start_date, fetch_missing=False)
-                trend_keywords = trend_snapshot.keywords[:count]
             except Exception:
                 trend_snapshot = None
-                trend_keywords = []
         dates: list[str] = []
-        for offset in range(count):
+        generated_metadata: list[dict[str, Any]] = []
+        for offset, plan in enumerate(plans[:count]):
             publish_date = start_date + timedelta(days=offset)
-            keyword = trend_keywords[offset] if offset < len(trend_keywords) else None
             build_daily_article(
                 settings,
                 publish_date=publish_date,
                 upload_draft=False,
                 seed=int(time.time()) + offset if regenerate else None,
                 trend_snapshot=trend_snapshot,
-                trend_keyword=keyword,
+                trend_keyword=plan.keyword or None,
                 issue_number_override=issue_base + offset if issue_base else None,
+                topic_plan=plan,
             )
+            metadata = _read_metadata(settings, publish_date) or {}
+            if _duplicates_existing(metadata, generated_metadata):
+                replacement = _replacement_plan(
+                    plans=plans,
+                    used={item.get("planned_topic", "") for item in generated_metadata},
+                    keyword=input_keyword,
+                    article_type=tool_settings.article_type,
+                    count=count,
+                    seed=int(time.time()) + offset + 100,
+                )
+                if replacement:
+                    build_daily_article(
+                        settings,
+                        publish_date=publish_date,
+                        upload_draft=False,
+                        seed=int(time.time()) + offset + 200,
+                        trend_snapshot=trend_snapshot,
+                        trend_keyword=replacement.keyword or None,
+                        issue_number_override=issue_base + offset if issue_base else None,
+                        topic_plan=replacement,
+                    )
+                    metadata = _read_metadata(settings, publish_date) or metadata
+            generated_metadata.append(metadata)
             dates.append(publish_date.isoformat())
         _write_current_batch(settings, dates)
         if tool_settings.article_type == "ten_lessons":
@@ -190,6 +228,7 @@ def create_app() -> Flask:
         metadata = _read_metadata(settings, parsed)
         issue_number = metadata.get("issue_number") if metadata else None
         focus_keyword = str(metadata.get("trend_focus_keyword") or "") if metadata else None
+        plan = _plan_from_metadata(metadata) if metadata else None
         build_daily_article(
             settings,
             publish_date=parsed,
@@ -197,6 +236,7 @@ def create_app() -> Flask:
             seed=int(time.time()),
             trend_keyword=focus_keyword or None,
             issue_number_override=issue_number if isinstance(issue_number, int) else None,
+            topic_plan=plan,
         )
         return redirect(url_for("preview", publish_date=publish_date))
 
@@ -515,6 +555,9 @@ def _preview_item(settings: Settings, publish_date: str, *, archived: bool = Fal
         copy_markdown=_draft_markdown(metadata),
         copy_html=_draft_copy_html(settings, parsed, metadata, archived=archived),
         quality_ok=_quality_ok(metadata),
+        planned_topic=str(metadata.get("planned_topic") or metadata.get("topic_name") or ""),
+        writing_angle=str(metadata.get("writing_angle") or ""),
+        body_preview=_body_preview(metadata),
     )
 
 
@@ -539,6 +582,87 @@ def _quality_ok(metadata: dict[str, Any]) -> bool:
     if not isinstance(checks, list):
         return True
     return all(bool(item.get("ok")) for item in checks if isinstance(item, dict))
+
+
+def _body_preview(metadata: dict[str, Any]) -> str:
+    parts = [str(metadata.get("intro") or "")]
+    for item in metadata.get("advices", []):
+        if isinstance(item, dict):
+            parts.append(str(item.get("title") or ""))
+            parts.append(str(item.get("body") or ""))
+            if len("".join(parts)) > 120:
+                break
+    text = " ".join(part.strip() for part in parts if part.strip())
+    return text[:150] + ("..." if len(text) > 150 else "")
+
+
+def _plan_from_metadata(metadata: dict[str, Any] | None) -> TopicPlan | None:
+    if not metadata:
+        return None
+    topic = str(metadata.get("planned_topic") or metadata.get("topic_name") or "").strip()
+    angle = str(metadata.get("writing_angle") or "").strip()
+    if not topic or not angle:
+        return None
+    return TopicPlan(
+        topic=topic,
+        angle=angle,
+        target_reader=str(metadata.get("target_reader") or "中小餐饮老板、餐饮店长、餐饮创业者"),
+        avoid_repeat_point=str(metadata.get("avoid_repeat_point") or "不要复用其他草稿的小标题、核心观点和胡哥总结"),
+        keyword=str(metadata.get("trend_focus_keyword") or ""),
+    )
+
+
+def _duplicates_existing(metadata: dict[str, Any], existing: list[dict[str, Any]]) -> bool:
+    if not metadata:
+        return False
+    current_title = _fingerprint(str(metadata.get("title") or ""))
+    current_topic = _fingerprint(str(metadata.get("planned_topic") or metadata.get("topic_name") or ""))
+    current_heads = {
+        _fingerprint(str(item.get("title") or ""))
+        for item in metadata.get("advices", [])
+        if isinstance(item, dict)
+    }
+    current_summary = _fingerprint(str(metadata.get("conclusion") or ""))
+    for item in existing:
+        other_title = _fingerprint(str(item.get("title") or ""))
+        other_topic = _fingerprint(str(item.get("planned_topic") or item.get("topic_name") or ""))
+        other_heads = {
+            _fingerprint(str(advice.get("title") or ""))
+            for advice in item.get("advices", [])
+            if isinstance(advice, dict)
+        }
+        other_summary = _fingerprint(str(item.get("conclusion") or ""))
+        if current_title and current_title == other_title:
+            return True
+        if current_topic and current_topic == other_topic:
+            return True
+        if current_summary and current_summary == other_summary:
+            return True
+        if len(current_heads & other_heads) >= 2:
+            return True
+    return False
+
+
+def _replacement_plan(
+    *,
+    plans: list[TopicPlan],
+    used: set[object],
+    keyword: str,
+    article_type: str,
+    count: int,
+    seed: int,
+) -> TopicPlan | None:
+    for plan in topic_planner(keyword=keyword, article_type=article_type, count=10, seed=seed):
+        if plan.topic not in used and all(plan.topic != existing.topic for existing in plans):
+            return plan
+    for plan in topic_planner(keyword=keyword, article_type=article_type, count=max(10, count), seed=seed + 1):
+        if plan.topic not in used:
+            return plan
+    return None
+
+
+def _fingerprint(value: str) -> str:
+    return "".join(ch for ch in value.lower() if ch.isalnum())
 
 
 def _archive_draft(settings: Settings, publish_date: date) -> None:
@@ -630,7 +754,7 @@ def _save_next_issue_from_batch(settings: Settings, tool_settings: ToolSettings,
             article_type=tool_settings.article_type,
             next_issue_number=str(max(issue_numbers) + 1),
             article_angle=CORE_GENERATION_LOGIC,
-            keyword_override="",
+            keyword_override=tool_settings.keyword_override,
             image_provider=tool_settings.image_provider,
             openai_api_key=tool_settings.openai_api_key,
             openai_image_model=tool_settings.openai_image_model,

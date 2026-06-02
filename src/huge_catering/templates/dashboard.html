@@ -259,6 +259,11 @@
     {% if settings_saved %}
       <div class="notice">生成设置已保存。下一次生成预览或上传草稿时会自动使用。</div>
     {% endif %}
+    {% if generation_error == "hot_keyword_required" %}
+      <div class="notice">餐饮热点解读需要先填写热点关键词，例如“外卖大战”。填写并保存后再生成。</div>
+    {% elif generation_error %}
+      <div class="notice">选题规划没有生成成功，请检查文章类型和关键词后再试。</div>
+    {% endif %}
 
     {% if not archive_view %}
       <section class="panel">
@@ -280,6 +285,9 @@
             </label>
             <label id="issue-field">期号/标题
               <input name="next_issue_number" value="{{ tool_settings.next_issue_number }}" placeholder="留空自动递增；例如 229">
+            </label>
+            <label>生成关键词
+              <input name="keyword_override" value="{{ tool_settings.keyword_override }}" placeholder="例如：外卖大战、菜单优化；热点解读必填">
             </label>
           </div>
           <div class="keyword-panel">
@@ -376,6 +384,15 @@
             </div>
             <div class="title">{{ item.title }}</div>
             <div class="meta">{{ item.publish_date }} · {{ item.topic_name }}{% if item.article_type %} · {{ {"ten_lessons":"餐饮10句劝","hot_interpretation":"餐饮热点解读","methodology":"餐饮方法论"}.get(item.article_type, item.article_type) }}{% endif %}</div>
+            {% if item.planned_topic %}
+              <div class="meta">本篇主题：{{ item.planned_topic }}</div>
+            {% endif %}
+            {% if item.writing_angle %}
+              <div class="meta">写作角度：{{ item.writing_angle }}</div>
+            {% endif %}
+            {% if item.body_preview %}
+              <div class="meta">正文预览：{{ item.body_preview }}</div>
+            {% endif %}
             <div class="meta">质量检查：{{ "通过" if item.quality_ok else "需检查" }}</div>
             {% if item.focus_keyword %}
               <div class="meta">热点词：{{ item.focus_keyword }}{% if item.focus_count %} · 引用约 {{ item.focus_count }} 次{% endif %}</div>
