@@ -129,6 +129,18 @@ label {
   font-size: 14px;
 }
 
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.check-row input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
 input,
 select,
 textarea {
@@ -228,6 +240,43 @@ textarea:focus {
   color: var(--accent-dark);
   font-size: 24px;
   line-height: 1.35;
+}
+
+.draft-card + .draft-card {
+  margin-top: 34px;
+  padding-top: 30px;
+  border-top: 1px solid var(--line);
+}
+
+.role-line,
+.background,
+.sources {
+  margin: 18px 0;
+  padding: 14px;
+  background: #f7f8f5;
+  border: 1px solid var(--line);
+  color: #3f4650;
+  line-height: 1.7;
+}
+
+.role-line strong,
+.background strong,
+.sources strong {
+  color: var(--accent-dark);
+}
+
+.sources ol {
+  margin: 10px 0 0;
+  padding-left: 22px;
+}
+
+.sources li + li {
+  margin-top: 10px;
+}
+
+.sources a {
+  color: var(--green);
+  overflow-wrap: anywhere;
 }
 
 .article-preview .digest {

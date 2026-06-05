@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>胡哥说餐饮公众号工具</title>
-    <link rel="stylesheet" href="./styles.css?v=20260605-quality1">
+    <link rel="stylesheet" href="./styles.css?v=20260605-role1">
   </head>
   <body>
     <main class="app-shell">
@@ -29,6 +29,24 @@
             </label>
 
             <label>
+              <span>关键词/热点</span>
+              <input id="keywordInput" type="text" value="外卖大战">
+            </label>
+
+            <label>
+              <span>角色视角</span>
+              <select id="roleSelect">
+                <option value="owner">餐饮老板视角</option>
+                <option value="manager">门店店长视角</option>
+                <option value="operations">营运总监视角</option>
+                <option value="marketing">品牌营销视角</option>
+                <option value="supply">供应链视角</option>
+                <option value="customer">顾客视角</option>
+                <option value="investor">投资人视角</option>
+              </select>
+            </label>
+
+            <label>
               <span>选题</span>
               <select id="topicSelect"></select>
             </label>
@@ -43,6 +61,11 @@
                 <input id="issueNumber" type="number" min="1" step="1" value="229">
               </label>
             </div>
+
+            <label>
+              <span>生成篇数</span>
+              <input id="articleCount" type="number" min="1" max="5" step="1" value="1">
+            </label>
 
             <div class="field-grid">
               <label>
@@ -63,6 +86,16 @@
             <label>
               <span>摘要</span>
               <textarea id="digestInput" rows="3"></textarea>
+            </label>
+
+            <label class="check-row">
+              <input id="referenceEnabled" type="checkbox" checked>
+              <span>启用参考资料</span>
+            </label>
+
+            <label>
+              <span>参考资料粘贴区</span>
+              <textarea id="referenceInput" rows="8" placeholder="标题：...\n来源：...\n链接：https://...\n摘要/观点：..."></textarea>
             </label>
 
             <div class="button-row">
@@ -89,6 +122,7 @@
           <div class="meta-strip">
             <span id="metaDate"></span>
             <span id="metaTopic"></span>
+            <span id="metaRole"></span>
             <span id="metaCount"></span>
           </div>
 
@@ -97,6 +131,6 @@
       </section>
     </main>
 
-    <script src="./app.js?v=20260605-quality1" defer></script>
+    <script src="./app.js?v=20260605-role1" defer></script>
   </body>
 </html>
