@@ -246,7 +246,7 @@ def _google_news_rss(query: str) -> list[ReferenceArticle]:
         summary = _clean_text(_xml_text(item, "description"))
         source = _xml_text(item, "source") or source
         published_at = _format_pub_date(_xml_text(item, "pubDate"))
-        if title and url:
+        if title and url and not _is_generic_title(title):
             articles.append(
                 ReferenceArticle(
                     source=source or _source_from_url(url) or "Google News RSS",
@@ -307,7 +307,7 @@ def _enrich_article(article: ReferenceArticle) -> ReferenceArticle:
 
     parser = ArticleHTMLParser()
     parser.feed(raw)
-    title = parser.title or article.title
+    title = _preferred_title(parser.title, article.title)
     summary = parser.description or parser.first_paragraph or article.summary
     short_quote = _short_quote(parser.first_paragraph)
     keywords = _extract_keywords(f"{title} {summary} {' '.join(parser.paragraphs[:3])}")
@@ -361,12 +361,12 @@ class BingResultParser(HTMLParser):
         if tag == "a" and self._in_anchor:
             if not self._in_h2 and not self._pending:
                 title = _clean_text("".join(self._title_parts))
-                if title and self._href and len(title) > 6:
+                if title and self._href and len(title) > 6 and not _is_generic_title(title):
                     self._pending = {"title": title, "url": self._href}
             self._in_anchor = False
         elif tag == "h2" and self._in_h2:
             title = _clean_text("".join(self._title_parts))
-            if title and self._href:
+            if title and self._href and not _is_generic_title(title):
                 self._pending = {"title": title, "url": self._href}
             self._in_h2 = False
         elif tag in {"p", "div"} and self._in_caption:
@@ -496,6 +496,14 @@ def _dedupe_articles(articles: list[ReferenceArticle]) -> list[ReferenceArticle]
 def _is_generic_title(title: str) -> bool:
     title = _clean_text(title)
     return title in {"新闻", "资讯", "首页", "热点", "搜索"} or len(title) < 4
+
+
+def _preferred_title(primary: str, fallback: str) -> str:
+    primary = _clean_text(primary)
+    fallback = _clean_text(fallback)
+    if primary and not _is_generic_title(primary):
+        return primary
+    return fallback
 
 
 def _split_google_news_title(value: str) -> tuple[str, str]:
