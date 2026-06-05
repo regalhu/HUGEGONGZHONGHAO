@@ -3,7 +3,7 @@ const state = {
   articles: [],
 };
 
-const APP_VERSION = "20260605-role1";
+const APP_VERSION = "20260605-actions1";
 
 const els = {
   form: document.querySelector("#generatorForm"),
@@ -22,9 +22,6 @@ const els = {
   referenceInput: document.querySelector("#referenceInput"),
   randomButton: document.querySelector("#randomButton"),
   copyTextButton: document.querySelector("#copyTextButton"),
-  copyHtmlButton: document.querySelector("#copyHtmlButton"),
-  downloadMdButton: document.querySelector("#downloadMdButton"),
-  downloadHtmlButton: document.querySelector("#downloadHtmlButton"),
   statusText: document.querySelector("#statusText"),
   previewTitle: document.querySelector("#previewTitle"),
   metaDate: document.querySelector("#metaDate"),
@@ -156,9 +153,6 @@ function bindEvents() {
 
   els.randomButton.addEventListener("click", chooseRandomTopic);
   els.copyTextButton.addEventListener("click", () => copyToClipboard(articlesToText()));
-  els.copyHtmlButton.addEventListener("click", () => copyToClipboard(articlesBodyHtml()));
-  els.downloadMdButton.addEventListener("click", () => downloadFile(filename("md"), articlesToMarkdown(), "text/markdown"));
-  els.downloadHtmlButton.addEventListener("click", () => downloadFile(filename("html"), fullHtmlDocument(), "text/html"));
 }
 
 function renderTopicOptions() {
@@ -620,36 +614,6 @@ function articleToText(article) {
   ].join("\n");
 }
 
-function articlesToMarkdown() {
-  return state.articles.map(articleToMarkdown).join("\n\n---\n\n");
-}
-
-function articleToMarkdown(article) {
-  return [
-    `# ${article.title}`,
-    "",
-    "【图片插入位：请在这里插入本期配图】",
-    "",
-    `**角色视角：** ${article.role.label}`,
-    "",
-    `**热点背景：** ${article.background}`,
-    "",
-    article.intro,
-    "",
-    ...article.sections.flatMap((section, index) => [
-      `## ${article.articleType === "ten_lessons" ? String(index + 1).padStart(2, "0") + " " : ""}${section.title}`,
-      "",
-      section.body,
-      "",
-    ]),
-    `## 胡哥总结`,
-    "",
-    article.conclusion,
-    "",
-    sourcesMarkdown(article.references),
-  ].join("\n");
-}
-
 function sourcesText(references) {
   if (!references.length) {
     return "参考信源：\n1. 本篇未使用外部信源，仅按用户输入话题和内置餐饮经营框架原创生成；不作为数据依据。";
@@ -666,56 +630,12 @@ function sourcesText(references) {
   ].join("\n");
 }
 
-function sourcesMarkdown(references) {
-  if (!references.length) {
-    return "## 参考信源\n\n1. 本篇未使用外部信源，仅按用户输入话题和内置餐饮经营框架原创生成；不作为数据依据。";
-  }
-  return [
-    "## 参考信源",
-    "",
-    ...references.map((reference, index) => [
-      `${index + 1}. 来源：${reference.source}`,
-      `   标题：${reference.title}`,
-      `   链接：${reference.url || "未提供"}`,
-      `   参考点：${reference.referencePoint || "用于参考热点背景/用户讨论/行业观点"}`,
-      reference.incomplete ? "   该来源仅用于话题参考，不作为数据依据。" : "",
-      "",
-    ].filter(Boolean).join("\n")),
-  ].join("\n");
-}
-
-function articlesBodyHtml() {
-  return state.articles.map(articleBodyHtml).join("\n<hr>\n");
-}
-
-function fullHtmlDocument() {
-  const title = state.articles[0]?.title || "胡哥说餐饮公众号文章";
-  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title></head><body>${articlesBodyHtml()}</body></html>`;
-}
-
 async function copyToClipboard(value) {
   await navigator.clipboard.writeText(value);
   els.statusText.textContent = "已复制";
   window.setTimeout(() => {
     if (state.articles[0]) els.statusText.textContent = `${articleTypeLabels[state.articles[0].articleType]} · ${state.articles[0].role.label} · ${APP_VERSION}`;
   }, 1400);
-}
-
-function downloadFile(name, content, type) {
-  const blob = new Blob([content], { type: `${type};charset=utf-8` });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = name;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
-function filename(extension) {
-  const date = state.articles[0]?.publishDate || new Date().toISOString().slice(0, 10);
-  return `huge-catering-${date}.${extension}`;
 }
 
 function keywordFromTopic(topic) {
