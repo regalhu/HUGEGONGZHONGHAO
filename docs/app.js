@@ -3,6 +3,8 @@ const state = {
   article: null,
 };
 
+const APP_VERSION = "20260605-quality1";
+
 const els = {
   form: document.querySelector("#generatorForm"),
   articleType: document.querySelector("#articleType"),
@@ -37,7 +39,7 @@ init();
 async function init() {
   els.publishDate.value = new Date().toISOString().slice(0, 10);
   try {
-    const response = await fetch("./topic_library.json", { cache: "no-store" });
+    const response = await fetch(`./topic_library.json?v=${APP_VERSION}`, { cache: "no-store" });
     state.topics = await response.json();
     renderTopicOptions();
     hydrateFromStorage();
@@ -63,7 +65,10 @@ function bindEvents() {
     els.brandName,
     els.authorName,
   ].forEach((element) => {
-    element.addEventListener("change", generateCurrentArticle);
+    element.addEventListener("change", () => {
+      persistControls();
+      generateCurrentArticle();
+    });
     element.addEventListener("input", persistControls);
   });
 
@@ -90,12 +95,18 @@ function renderTopicOptions() {
   els.topicSelect.innerHTML = state.topics
     .map((topic) => `<option value="${escapeAttr(topic.id)}">${escapeHtml(topic.name)} · ${escapeHtml(topic.title)}</option>`)
     .join("");
+  if (state.topics.length && !els.topicSelect.value) {
+    els.topicSelect.value = state.topics[0].id;
+  }
 }
 
 function hydrateFromStorage() {
   const stored = JSON.parse(localStorage.getItem("hugeGithubTool") || "{}");
   if (stored.articleType) els.articleType.value = stored.articleType;
   if (stored.topicId && state.topics.some((topic) => topic.id === stored.topicId)) els.topicSelect.value = stored.topicId;
+  if (!state.topics.some((topic) => topic.id === els.topicSelect.value) && state.topics[0]) {
+    els.topicSelect.value = state.topics[0].id;
+  }
   if (stored.issueNumber) els.issueNumber.value = stored.issueNumber;
   if (stored.brandName) els.brandName.value = stored.brandName;
   if (stored.authorName) els.authorName.value = stored.authorName;
@@ -120,6 +131,7 @@ function chooseRandomTopic() {
   const pool = state.topics.filter((topic) => topic.id !== current);
   const topic = pool[Math.floor(Math.random() * pool.length)] || state.topics[0];
   els.topicSelect.value = topic.id;
+  persistControls();
   generateCurrentArticle();
 }
 
@@ -156,7 +168,7 @@ function generateCurrentArticle() {
 }
 
 function titleFor(topic, articleType, issueNumber) {
-  if (articleType === "ten_lessons") return `餐饮要赚钱 听我10句劝｜第${issueNumber}期`;
+  if (articleType === "ten_lessons") return `${topic.short_title || "餐饮要赚钱 听我10句劝"}｜第${issueNumber}期`;
   if (articleType === "methodology") return `${topic.name.replace("·", "")}越做越乱？先用这3步把利润拉回来`;
   return topic.title;
 }
@@ -209,7 +221,7 @@ function conclusionFor(authorName, brandName, articleType) {
 
 function renderArticle() {
   if (!state.article) return;
-  els.statusText.textContent = `${articleTypeLabels[state.article.articleType]} · 可复制`;
+  els.statusText.textContent = `${articleTypeLabels[state.article.articleType]} · ${state.article.topicName} · ${APP_VERSION}`;
   els.previewTitle.textContent = state.article.title;
   els.metaDate.textContent = state.article.publishDate;
   els.metaTopic.textContent = state.article.topicName;
