@@ -3,7 +3,7 @@ const state = {
   articles: [],
 };
 
-const APP_VERSION = "20260605-actions1";
+const APP_VERSION = "20260605-backend1";
 
 const els = {
   form: document.querySelector("#generatorForm"),
@@ -19,6 +19,8 @@ const els = {
   titleInput: document.querySelector("#titleInput"),
   digestInput: document.querySelector("#digestInput"),
   referenceEnabled: document.querySelector("#referenceEnabled"),
+  backendUrl: document.querySelector("#backendUrl"),
+  backendSearchButton: document.querySelector("#backendSearchButton"),
   referenceInput: document.querySelector("#referenceInput"),
   randomButton: document.querySelector("#randomButton"),
   copyTextButton: document.querySelector("#copyTextButton"),
@@ -130,6 +132,7 @@ function bindEvents() {
     els.brandName,
     els.authorName,
     els.referenceEnabled,
+    els.backendUrl,
     els.referenceInput,
   ].forEach((element) => {
     element.addEventListener("change", () => {
@@ -152,6 +155,7 @@ function bindEvents() {
   });
 
   els.randomButton.addEventListener("click", chooseRandomTopic);
+  els.backendSearchButton.addEventListener("click", searchReferencesFromBackend);
   els.copyTextButton.addEventListener("click", () => copyToClipboard(articlesToText()));
 }
 
@@ -178,6 +182,7 @@ function hydrateFromStorage() {
   if (stored.brandName) els.brandName.value = stored.brandName;
   if (stored.authorName) els.authorName.value = stored.authorName;
   if (typeof stored.referenceEnabled === "boolean") els.referenceEnabled.checked = stored.referenceEnabled;
+  if (stored.backendUrl) els.backendUrl.value = stored.backendUrl;
   if (stored.referenceText) els.referenceInput.value = stored.referenceText;
 }
 
@@ -194,9 +199,60 @@ function persistControls() {
       brandName: els.brandName.value,
       authorName: els.authorName.value,
       referenceEnabled: els.referenceEnabled.checked,
+      backendUrl: els.backendUrl.value,
       referenceText: els.referenceInput.value,
     }),
   );
+}
+
+async function searchReferencesFromBackend() {
+  const backendUrl = els.backendUrl.value.trim().replace(/\/+$/, "");
+  const keyword = els.keywordInput.value.trim() || "餐饮热点";
+  if (!backendUrl) {
+    els.statusText.textContent = "请先填写后端接口地址";
+    return;
+  }
+  els.backendSearchButton.disabled = true;
+  els.backendSearchButton.textContent = "搜索中...";
+  els.statusText.textContent = "正在从后端搜索公开参考文章";
+  try {
+    const response = await fetch(`${backendUrl}/api/reference-search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        keyword,
+        role: els.roleSelect.value,
+        limit: 6,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || `HTTP ${response.status}`);
+    }
+    els.referenceEnabled.checked = true;
+    els.referenceInput.value = data.reference_text || referencesToText(data.articles || []);
+    persistControls();
+    generateArticles();
+    const count = Array.isArray(data.articles) ? data.articles.length : 0;
+    els.statusText.textContent = `已抓取 ${count} 条参考信源`;
+  } catch (error) {
+    els.statusText.textContent = `后端搜索失败：${error.message || error}`;
+  } finally {
+    els.backendSearchButton.disabled = false;
+    els.backendSearchButton.textContent = "后端搜索参考文章";
+  }
+}
+
+function referencesToText(articles) {
+  return articles.map((article) => [
+    `标题：${article.title || "未标明标题"}`,
+    `来源：${article.source || "未标明来源"}`,
+    `链接：${article.url || ""}`,
+    `发布时间：${article.published_at || "未标明"}`,
+    `摘要/观点：${article.summary || ""}`,
+    `参考点：${article.reference_point || "用于参考热点背景/用户讨论/行业观点"}`,
+    article.incomplete ? "该来源仅用于话题参考，不作为数据依据。" : "",
+  ].filter(Boolean).join("\n")).join("\n\n");
 }
 
 function chooseRandomTopic() {

@@ -46,6 +46,11 @@ button:hover {
   border-color: #aeb8ad;
 }
 
+button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
 .primary {
   border-color: var(--accent);
   background: var(--accent);

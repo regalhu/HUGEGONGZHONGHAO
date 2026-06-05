@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>胡哥说餐饮公众号工具</title>
-    <link rel="stylesheet" href="./styles.css?v=20260605-actions1">
+    <link rel="stylesheet" href="./styles.css?v=20260605-backend1">
   </head>
   <body>
     <main class="app-shell">
@@ -94,6 +94,13 @@
             </label>
 
             <label>
+              <span>后端接口地址</span>
+              <input id="backendUrl" type="url" value="http://127.0.0.1:8766">
+            </label>
+
+            <button id="backendSearchButton" type="button">后端搜索参考文章</button>
+
+            <label>
               <span>参考资料粘贴区</span>
               <textarea id="referenceInput" rows="8" placeholder="标题：...\n来源：...\n链接：https://...\n摘要/观点：..."></textarea>
             </label>
@@ -128,6 +135,6 @@
       </section>
     </main>
 
-    <script src="./app.js?v=20260605-actions1" defer></script>
+    <script src="./app.js?v=20260605-backend1" defer></script>
   </body>
 </html>

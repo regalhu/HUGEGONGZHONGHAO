@@ -12,7 +12,7 @@ import tempfile
 import time
 from typing import Any
 
-from flask import Flask, Response, abort, redirect, render_template, request, send_from_directory, url_for
+from flask import Flask, Response, abort, jsonify, redirect, render_template, request, send_from_directory, url_for
 
 from .config import Settings, load_settings
 from .draft_images import article_from_metadata, manual_images_from_metadata, render_metadata_article, save_cover_image, save_manual_image, slot_options, valid_slot_ids
@@ -20,6 +20,7 @@ from .image_checks import ensure_article_images
 from .pipeline import build_daily_article
 from .image_prompt_workbench import build_workbench_from_metadata
 from .quality import check_article_quality
+from .reference_search import format_references_for_prompt, search_reference_articles
 from .render import render_article_html
 from .topic_planner import TopicPlan, topic_planner
 from .tool_settings import ToolSettings, load_tool_settings, save_tool_settings, tool_settings_path
@@ -59,6 +60,14 @@ class PreviewItem:
 def create_app() -> Flask:
     app = Flask(__name__)
     settings = load_settings()
+
+    @app.after_request
+    def add_api_cors_headers(response: Response) -> Response:
+        if request.path.startswith("/api/"):
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+            response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        return response
 
     @app.get("/")
     def index() -> str:
@@ -427,6 +436,41 @@ def create_app() -> Flask:
             "has_wechat_credentials": settings.has_wechat_credentials,
             "output_dir": str(settings.output_dir),
         }
+
+    @app.post("/api/reference-search")
+    def api_reference_search() -> Response:
+        payload = request.get_json(silent=True) or {}
+        keyword = str(payload.get("keyword") or request.form.get("keyword") or "").strip()
+        role = str(payload.get("role") or request.form.get("role") or "owner").strip()
+        force_refresh = bool(payload.get("force_refresh") or request.form.get("force_refresh"))
+        try:
+            limit = int(payload.get("limit") or request.form.get("limit") or 6)
+        except (TypeError, ValueError):
+            limit = 6
+        if not keyword:
+            return jsonify({"ok": False, "error": "keyword is required"}), 400
+        try:
+            result = search_reference_articles(
+                keyword=keyword,
+                role=role,
+                limit=limit,
+                cache_dir=settings.output_dir.parent / "data",
+                force_refresh=force_refresh,
+            )
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+        data = result.to_dict()
+        data["ok"] = True
+        data["reference_text"] = format_references_for_prompt(result.articles)
+        return jsonify(data)
+
+    @app.route("/api/reference-search", methods=["OPTIONS"])
+    def api_reference_search_options() -> Response:
+        response = Response("")
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        return response
 
     return app
 
