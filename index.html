@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>胡哥说餐饮公众号工具</title>
+    <link rel="stylesheet" href="./styles.css?v=20260605-backend1">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace">
+        <aside class="panel controls" aria-label="生成设置">
+          <div class="brand-block">
+            <div class="brand-mark">胡</div>
+            <div>
+              <h1>胡哥说餐饮</h1>
+              <p>公众号文章生成工具</p>
+            </div>
+          </div>
+
+          <form id="generatorForm" class="form-stack">
+            <label>
+              <span>文章类型</span>
+              <select id="articleType">
+                <option value="ten_lessons">餐饮10句劝</option>
+                <option value="hot_interpretation">餐饮热点解读</option>
+                <option value="methodology">餐饮方法论</option>
+              </select>
+            </label>
+
+            <label>
+              <span>关键词/热点</span>
+              <input id="keywordInput" type="text" value="外卖大战">
+            </label>
+
+            <label>
+              <span>角色视角</span>
+              <select id="roleSelect">
+                <option value="owner">餐饮老板视角</option>
+                <option value="manager">门店店长视角</option>
+                <option value="operations">营运总监视角</option>
+                <option value="marketing">品牌营销视角</option>
+                <option value="supply">供应链视角</option>
+                <option value="customer">顾客视角</option>
+                <option value="investor">投资人视角</option>
+              </select>
+            </label>
+
+            <label>
+              <span>选题</span>
+              <select id="topicSelect"></select>
+            </label>
+
+            <div class="field-grid">
+              <label>
+                <span>日期</span>
+                <input id="publishDate" type="date">
+              </label>
+              <label>
+                <span>期号</span>
+                <input id="issueNumber" type="number" min="1" step="1" value="229">
+              </label>
+            </div>
+
+            <label>
+              <span>生成篇数</span>
+              <input id="articleCount" type="number" min="1" max="5" step="1" value="1">
+            </label>
+
+            <div class="field-grid">
+              <label>
+                <span>品牌名</span>
+                <input id="brandName" type="text" value="胡哥说餐饮">
+              </label>
+              <label>
+                <span>作者</span>
+                <input id="authorName" type="text" value="胡哥">
+              </label>
+            </div>
+
+            <label>
+              <span>标题</span>
+              <input id="titleInput" type="text">
+            </label>
+
+            <label>
+              <span>摘要</span>
+              <textarea id="digestInput" rows="3"></textarea>
+            </label>
+
+            <label class="check-row">
+              <input id="referenceEnabled" type="checkbox" checked>
+              <span>启用参考资料</span>
+            </label>
+
+            <label>
+              <span>后端接口地址</span>
+              <input id="backendUrl" type="url" value="http://127.0.0.1:8766">
+            </label>
+
+            <button id="backendSearchButton" type="button">后端搜索参考文章</button>
+
+            <label>
+              <span>参考资料粘贴区</span>
+              <textarea id="referenceInput" rows="8" placeholder="标题：...\n来源：...\n链接：https://...\n摘要/观点：..."></textarea>
+            </label>
+
+            <div class="button-row">
+              <button class="primary" id="generateButton" type="submit">生成</button>
+              <button id="randomButton" type="button">换题</button>
+            </div>
+          </form>
+        </aside>
+
+        <section class="preview-area" aria-label="文章预览">
+          <header class="topbar">
+            <div>
+              <p id="statusText">准备就绪</p>
+              <h2 id="previewTitle">正在载入内容库</h2>
+            </div>
+            <div class="actions">
+              <button id="copyTextButton" type="button">复制正文</button>
+            </div>
+          </header>
+
+          <div class="meta-strip">
+            <span id="metaDate"></span>
+            <span id="metaTopic"></span>
+            <span id="metaRole"></span>
+            <span id="metaCount"></span>
+          </div>
+
+          <article id="articlePreview" class="article-preview"></article>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js?v=20260605-backend1" defer></script>
+  </body>
+</html>
